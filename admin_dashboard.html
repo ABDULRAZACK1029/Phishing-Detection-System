@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PhishGuard - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-slate-100 font-sans text-slate-800 flex h-screen overflow-hidden">
+
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20">
+        <div class="h-16 flex items-center px-8 border-b border-slate-800">
+            <h1 class="font-bold text-white text-lg"><i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>
+                AdminPanel</h1>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="admin_dashboard.html" class="flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg">
+                <i class="fa-solid fa-chart-line w-6"></i> Dashboard
+            </a>
+            <a href="users.html" class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fa-solid fa-users w-6"></i> Users
+            </a>
+            <a href="threat_logs.html"
+                class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fa-solid fa-bug w-6"></i> Threat Logs
+            </a>
+        </nav>
+        <div class="p-4 border-t border-slate-800">
+            <button onclick="logout()" class="flex items-center text-red-400 hover:text-red-300 w-full">
+                <i class="fa-solid fa-right-from-bracket w-6"></i> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-y-auto">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold">Admin Dashboard</h2>
+                <span id="activeUsersBadge"
+                    class="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full font-bold">Loading...</span>
+            </div>
+        </header>
+
+        <main class="p-8">
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Total Users</p>
+                    <h3 id="totalUsers" class="text-3xl font-bold text-slate-800 mt-1">-</h3>
+                    <p class="text-green-500 text-xs mt-2 font-bold">Registered users</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Active Today</p>
+                    <h3 id="activeUsers" class="text-3xl font-bold text-green-600 mt-1">-</h3>
+                    <p class="text-slate-400 text-xs mt-2">Last 24 hours</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Total Scans</p>
+                    <h3 id="totalScans" class="text-3xl font-bold text-blue-600 mt-1">-</h3>
+                    <p class="text-blue-500 text-xs mt-2 font-bold">All time</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Avg Scans/User</p>
+                    <h3 id="avgScans" class="text-3xl font-bold text-purple-600 mt-1">-</h3>
+                    <p class="text-slate-400 text-xs mt-2">Average</p>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"
+                    style="max-height: 500px;">
+                    <h3 class="font-bold text-lg mb-4 flex-shrink-0">Threat Level Distribution</h3>
+                    <div class="overflow-y-auto flex-1" style="min-height: 300px; max-height: 400px;">
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="threatChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"
+                    style="max-height: 500px;">
+                    <h3 class="font-bold text-lg mb-4 flex-shrink-0">Threat Types</h3>
+                    <div class="overflow-y-auto flex-1" style="min-height: 300px; max-height: 400px;">
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="threatTypeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h3 class="font-bold text-lg mb-4">Recent Threats</h3>
+                <div id="recentThreats" class="space-y-3">
+                    <p class="text-slate-500 text-center py-4">Loading...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let threatChart, threatTypeChart;
+
+        // Check authentication
+        window.onload = () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Verify admin access
+            fetch(`${API_BASE}/auth/verify`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.valid || data.user.role !== 'admin') {
+                        alert('Admin access required');
+                        window.location.href = 'user_dashboard.html';
+                        return;
+                    }
+                    loadDashboard();
+                })
+                .catch(() => {
+                    window.location.href = 'login.html';
+                });
+        };
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        async function loadDashboard() {
+            const token = localStorage.getItem('token');
+
+            try {
+                // Load stats
+                const statsRes = await fetch(`${API_BASE}/admin/dashboard/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const stats = await statsRes.json();
+
+                document.getElementById('totalUsers').textContent = stats.total_users || 0;
+                document.getElementById('activeUsers').textContent = stats.active_users || 0;
+                document.getElementById('totalScans').textContent = stats.total_scans || 0;
+                document.getElementById('avgScans').textContent = stats.avg_scans_per_user || 0;
+                document.getElementById('activeUsersBadge').textContent = `${stats.active_users || 0} Active Users`;
+
+                // Load threat breakdown
+                const threatBreakdown = stats.threat_breakdown || {};
+                updateThreatChart(threatBreakdown);
+
+                // Load threat types
+                const typesRes = await fetch(`${API_BASE}/admin/analytics/threat-types`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const typesData = await typesRes.json();
+                updateThreatTypeChart(typesData.threat_types || {});
+
+                // Load recent threats
+                const threatsRes = await fetch(`${API_BASE}/admin/threats?per_page=5`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const threatsData = await threatsRes.json();
+                displayRecentThreats(threatsData.threats || []);
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        function updateThreatChart(breakdown) {
+            const ctx = document.getElementById('threatChart').getContext('2d');
+            if (threatChart) threatChart.destroy();
+
+            threatChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(breakdown),
+                    datasets: [{
+                        data: Object.values(breakdown),
+                        backgroundColor: [
+                            'rgba(34, 197, 94, 0.8)',   // safe - green
+                            'rgba(59, 130, 246, 0.8)',   // low - blue
+                            'rgba(234, 179, 8, 0.8)',    // medium - yellow
+                            'rgba(249, 115, 22, 0.8)',   // high - orange
+                            'rgba(239, 68, 68, 0.8)'     // critical - red
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function updateThreatTypeChart(types) {
+            const ctx = document.getElementById('threatTypeChart').getContext('2d');
+            if (threatTypeChart) threatTypeChart.destroy();
+
+            threatTypeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(types),
+                    datasets: [{
+                        label: 'Threat Count',
+                        data: Object.values(types),
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Horizontal bars
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                autoSkip: false,
+                                maxRotation: 0,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayRecentThreats(threats) {
+            const container = document.getElementById('recentThreats');
+            if (threats.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-center py-4">No recent threats</p>';
+                return;
+            }
+
+            container.innerHTML = threats.map(threat => `
+                <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+                    <div class="flex items-center gap-3">
+                        <div class="h-8 w-8 bg-red-200 rounded-full flex items-center justify-center text-red-700">
+                            <i class="fa-solid fa-bug text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold">${threat.url.substring(0, 50)}...</p>
+                            <p class="text-xs text-red-600">${threat.threat_type || 'Unknown'} - ${threat.threat_level}</p>
+                        </div>
+                    </div>
+                    <span class="text-xs text-slate-500">${new Date(threat.created_at).toLocaleDateString()}</span>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,43 @@
+{
+  "model_type": "random_forest",
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "roc_auc": 1.0,
+  "training_samples": 4000,
+  "test_samples": 1000,
+  "total_samples": 5000,
+  "feature_count": 17,
+  "feature_names": [
+    "url_length",
+    "domain_length",
+    "path_length",
+    "num_dots",
+    "num_hyphens",
+    "num_slashes",
+    "num_question_marks",
+    "num_equals",
+    "num_ampersands",
+    "num_percent",
+    "has_ip",
+    "has_port",
+    "suspicious_keyword_count",
+    "is_trusted_domain",
+    "has_homograph",
+    "subdomain_count",
+    "path_depth"
+  ],
+  "training_date": "2026-01-27T12:29:23.922444",
+  "confusion_matrix": [
+    [
+      500,
+      0
+    ],
+    [
+      0,
+      500
+    ]
+  ],
+  "test_size": 0.2
+}

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishGuard - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom Animation for Background Blobs */
+        @keyframes blob {
+            0% {
+                transform: translate(0px, 0px) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+
+            100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+        }
+
+        .animate-blob {
+            animation: blob 7s infinite;
+        }
+
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+
+        /* Smooth Theme Transition */
+        body,
+        div,
+        nav,
+        input,
+        button {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+    </style>
+</head>
+
+<body id="body" class="bg-slate-900 text-white min-h-screen relative overflow-x-hidden font-sans">
+
+    <div id="bg-blobs" class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div
+            class="absolute top-10 left-10 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob">
+        </div>
+        <div
+            class="absolute bottom-10 right-10 w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000">
+        </div>
+    </div>
+
+    <nav id="navbar"
+        class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div
+            class="flex items-center gap-3 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            <i class="fa-solid fa-shield-halved text-blue-500"></i> PhishGuard
+        </div>
+
+        <div class="flex items-center gap-6">
+            <button onclick="toggleTheme()" class="focus:outline-none">
+                <i id="themeIcon"
+                    class="fa-solid fa-sun text-yellow-400 text-xl hover:scale-110 transition-transform"></i>
+            </button>
+
+            <div class="h-6 w-px bg-slate-600 mx-1"></div>
+
+            <div class="flex items-center gap-3">
+                <span id="userName" class="text-sm text-slate-300 hidden sm:block">Welcome, User</span>
+                <button onclick="logout()"
+                    class="text-sm bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg transition-all">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto mt-16 px-4">
+
+        <div class="text-center mb-12">
+            <h2 id="mainHeading" class="text-4xl font-bold mb-4">Analyze Suspicious Links</h2>
+            <p id="subHeading" class="text-slate-400 text-lg">Paste a URL below to get an instant AI security
+                assessment.</p>
+        </div>
+
+        <div id="searchCard"
+            class="bg-slate-800 p-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2 mb-12 relative overflow-hidden group">
+            <div
+                class="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            </div>
+
+            <i class="fa-solid fa-link text-slate-400 ml-4 z-10"></i>
+            <input type="text" id="urlInput" placeholder="https://example.com/login"
+                class="flex-1 p-3 bg-transparent outline-none text-white placeholder-slate-500 z-10">
+            <button onclick="scanUrl()"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/30 z-10 flex items-center gap-2">
+                <i class="fa-solid fa-magnifying-glass"></i> <span class="hidden sm:inline">Scan</span>
+            </button>
+        </div>
+
+        <div id="loading" class="hidden text-center py-10">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent">
+            </div>
+            <p id="loadingText" class="text-slate-400 mt-4">AI is analyzing website structure...</p>
+        </div>
+
+        <div id="resultCard" class="hidden transform transition-all duration-500 opacity-0 translate-y-4 mb-12">
+
+            <div id="statusHeader" class="rounded-t-2xl p-6 flex items-center gap-4 text-white">
+                <div id="statusIcon"
+                    class="text-3xl bg-white/20 p-3 rounded-full h-12 w-12 flex items-center justify-center backdrop-blur-sm">
+                </div>
+                <div>
+                    <h3 id="statusTitle" class="text-2xl font-bold"></h3>
+                    <p id="statusSubtitle" class="opacity-90 font-medium"></p>
+                </div>
+            </div>
+
+            <div id="resultBody" class="bg-slate-800 p-8 rounded-b-2xl shadow-lg border-x border-b border-slate-700">
+                <div class="flex items-start gap-4">
+                    <div id="aiIconBox" class="bg-purple-500/10 p-3 rounded-xl text-purple-400 mt-1">
+                        <i class="fa-solid fa-robot text-xl"></i>
+                    </div>
+                    <div>
+                        <h4 id="aiTitle" class="font-bold text-slate-200 mb-2 text-lg">AI Analysis</h4>
+                        <p id="aiExplanation" class="text-slate-400 leading-relaxed"></p>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-700/50 flex justify-between items-center">
+                    <span class="text-xs text-slate-500 uppercase tracking-wider font-bold">Scan ID: #----</span>
+                    <button onclick="viewHistory()"
+                        class="text-blue-400 hover:text-blue-300 text-sm font-medium hover:underline flex items-center gap-1">
+                        View Scan History <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Feature Description Section -->
+        <div id="featuresSection" class="mb-12">
+            <h3 id="featuresTitle" class="text-2xl font-bold text-center mb-8 text-slate-200">AI-Powered Detection
+                Features</h3>
+
+            <div id="featuresGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Feature 1: URL Analysis -->
+                <div
+                    class="feature-card bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-blue-500 transition-all hover:scale-[1.02]">
+                    <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-link text-blue-400 text-xl"></i>
+                    </div>
+                    <h4 class="feature-title font-bold text-lg mb-2 text-white">URL-Based Detection</h4>
+                    <p class="feature-desc text-slate-400 text-sm">Advanced analysis of URL structure, domain age, and
+                        suspicious patterns to identify phishing attempts before they cause harm.</p>
+                    <div class="mt-4 text-xs text-blue-400 font-medium">FR-1, FR-2</div>
+                </div>
+
+                <!-- Feature 2: Domain Analysis -->
+                <div
+                    class="feature-card bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-purple-500 transition-all hover:scale-[1.02]">
+                    <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-globe text-purple-400 text-xl"></i>
+                    </div>
+                    <h4 class="feature-title font-bold text-lg mb-2 text-white">Domain & Metadata Analysis</h4>
+                    <p class="feature-desc text-slate-400 text-sm">Comprehensive WHOIS lookup and SSL certificate
+                        verification to assess domain legitimacy and security posture.</p>
+                    <div class="mt-4 text-xs text-purple-400 font-medium">FR-3</div>
+                </div>
+
+                <!-- Feature 3: ML Classification -->
+                <div
+                    class="feature-card bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-green-500 transition-all hover:scale-[1.02]">
+                    <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-brain text-green-400 text-xl"></i>
+                    </div>
+                    <h4 class="feature-title font-bold text-lg mb-2 text-white">Machine Learning Classification</h4>
+                    <p class="feature-desc text-slate-400 text-sm">Trained on extensive datasets (PhishTank, OpenPhish)
+                        to classify websites with high accuracy and minimal false positives.</p>
+                    <div class="mt-4 text-xs text-green-400 font-medium">FR-4</div>
+                </div>
+
+                <!-- Feature 4: AI Explanation -->
+                <div
+                    class="feature-card bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-cyan-500 transition-all hover:scale-[1.02]">
+                    <div class="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-robot text-cyan-400 text-xl"></i>
+                    </div>
+                    <h4 class="feature-title font-bold text-lg mb-2 text-white">AI Explanation Module</h4>
+                    <p class="feature-desc text-slate-400 text-sm">Intelligent reasoning that explains detection
+                        results, highlighting specific threats like homograph attacks or malicious scripts.</p>
+                    <div class="mt-4 text-xs text-cyan-400 font-medium">FR-5</div>
+                </div>
+
+                <!-- Feature 5: Threat Scoring -->
+                <div
+                    class="feature-card bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-red-500 transition-all hover:scale-[1.02]">
+                    <div class="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-chart-line text-red-400 text-xl"></i>
+                    </div>
+                    <h4 class="feature-title font-bold text-lg mb-2 text-white">Threat Scoring System</h4>
+                    <p class="feature-desc text-slate-400 text-sm">Quantitative risk assessment with clear threat levels
+                        (Safe/Low/Medium/High) for informed decision making.</p>
+                    <div class="mt-4 text-xs text-red-400 font-medium">FR-6</div>
+                </div>
+
+                <!-- Feature 6: User Interface -->
+                <div
+                    class="feature-card bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-yellow-500 transition-all hover:scale-[1.02]">
+                    <div class="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-laptop text-yellow-400 text-xl"></i>
+                    </div>
+                    <h4 class="feature-title font-bold text-lg mb-2 text-white">Intuitive User Interface</h4>
+                    <p class="feature-desc text-slate-400 text-sm">Clean, responsive design with real-time feedback and
+                        comprehensive reporting for both novice and expert users.</p>
+                    <div class="mt-4 text-xs text-yellow-400 font-medium">IEEE 830 Compliant</div>
+                </div>
+            </div>
+
+            <!-- System Requirements Note -->
+            <div id="specsCard" class="mt-8 p-6 bg-slate-800/30 rounded-xl border border-slate-700">
+                <div class="flex items-start gap-4">
+                    <i class="fa-solid fa-circle-info text-blue-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 id="specsTitle" class="font-bold text-lg mb-2 text-white">System Specifications</h4>
+                        <p id="specsDesc" class="text-slate-400 text-sm mb-3">Built according to IEEE SRS standards with
+                            the following non-functional requirements:</p>
+                        <div id="specsList" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-bolt text-green-400"></i>
+                                <span class="specs-item text-slate-300">Response Time: &lt;3 seconds</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-shield text-blue-400"></i>
+                                <span class="specs-item text-slate-300">Secure Data Handling</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-gauge-high text-purple-400"></i>
+                                <span class="specs-item text-slate-300">High Detection Accuracy</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-expand text-cyan-400"></i>
+                                <span class="specs-item text-slate-300">Scalable Architecture</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        // Check authentication on page load
+        window.onload = () => {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Verify token
+            fetch(`${API_BASE}/auth/verify`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.valid) {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = 'login.html';
+                    } else {
+                        // Update user name
+                        if (userStr) {
+                            const user = JSON.parse(userStr);
+                            document.getElementById('userName').textContent = `Welcome, ${user.name}`;
+                        }
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = 'login.html';
+                });
+        };
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        // --- Theme Logic ---
+        let isDarkMode = true;
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            const body = document.getElementById('body');
+            const navbar = document.getElementById('navbar');
+            const blobs = document.getElementById('bg-blobs');
+            const searchCard = document.getElementById('searchCard');
+            const urlInput = document.getElementById('urlInput');
+            const resultBody = document.getElementById('resultBody');
+            const themeIcon = document.getElementById('themeIcon');
+            const mainHeading = document.getElementById('mainHeading');
+            const subHeading = document.getElementById('subHeading');
+            const userName = document.getElementById('userName');
+
+            // New elements for feature section
+            const featuresTitle = document.getElementById('featuresTitle');
+            const featureCards = document.querySelectorAll('.feature-card');
+            const featureTitles = document.querySelectorAll('.feature-title');
+            const featureDescs = document.querySelectorAll('.feature-desc');
+            const specsCard = document.getElementById('specsCard');
+            const specsTitle = document.getElementById('specsTitle');
+            const specsDesc = document.getElementById('specsDesc');
+            const specsItems = document.querySelectorAll('.specs-item');
+            const loadingText = document.getElementById('loadingText');
+            const aiTitle = document.getElementById('aiTitle');
+            const aiExplanation = document.getElementById('aiExplanation');
+
+            if (isDarkMode) {
+                // DARK MODE
+                body.classList.replace('bg-slate-50', 'bg-slate-900');
+                body.classList.remove('text-slate-800');
+                body.classList.add('text-white');
+
+                blobs.classList.remove('hidden');
+
+                navbar.classList.replace('bg-white/90', 'bg-slate-800/80');
+                navbar.classList.replace('border-slate-200', 'border-slate-700');
+
+                searchCard.classList.replace('bg-white', 'bg-slate-800');
+                searchCard.classList.replace('border-slate-200', 'border-slate-700');
+
+                urlInput.classList.replace('text-slate-700', 'text-white');
+                urlInput.classList.replace('placeholder-slate-400', 'placeholder-slate-500');
+
+                resultBody.classList.replace('bg-white', 'bg-slate-800');
+                resultBody.classList.replace('border-slate-200', 'border-slate-700');
+
+                mainHeading.classList.replace('text-slate-800', 'text-white');
+                subHeading.classList.replace('text-slate-500', 'text-slate-400');
+                userName.classList.replace('text-slate-500', 'text-slate-300');
+
+                // Feature section
+                if (featuresTitle) {
+                    featuresTitle.classList.replace('text-slate-800', 'text-slate-200');
+                }
+
+                // Feature cards
+                featureCards.forEach(card => {
+                    card.classList.replace('bg-white', 'bg-slate-800/50');
+                    card.classList.replace('border-slate-200', 'border-slate-700');
+                });
+
+                // Feature titles and descriptions
+                featureTitles.forEach(title => {
+                    title.classList.replace('text-slate-800', 'text-white');
+                });
+
+                featureDescs.forEach(desc => {
+                    desc.classList.replace('text-slate-500', 'text-slate-400');
+                });
+
+                // Specs card
+                if (specsCard) {
+                    specsCard.classList.replace('bg-slate-100', 'bg-slate-800/30');
+                    specsCard.classList.replace('border-slate-300', 'border-slate-700');
+                }
+
+                if (specsTitle) {
+                    specsTitle.classList.replace('text-slate-800', 'text-white');
+                }
+
+                if (specsDesc) {
+                    specsDesc.classList.replace('text-slate-500', 'text-slate-400');
+                }
+
+                // Specs items
+                specsItems.forEach(item => {
+                    item.classList.replace('text-slate-500', 'text-slate-300');
+                });
+
+                // Loading text
+                if (loadingText) {
+                    loadingText.classList.replace('text-slate-500', 'text-slate-400');
+                }
+
+                // AI Analysis text
+                if (aiTitle) {
+                    aiTitle.classList.replace('text-slate-800', 'text-slate-200');
+                }
+
+                if (aiExplanation) {
+                    aiExplanation.classList.replace('text-slate-600', 'text-slate-400');
+                }
+
+                // Add viewHistory function
+                function viewHistory() {
+                    alert('Scan history feature - to be implemented');
+                }
+
+                // Icon change
+                themeIcon.classList.replace('fa-moon', 'fa-sun');
+                themeIcon.classList.replace('text-slate-600', 'text-yellow-400');
+
+            } else {
+                // LIGHT MODE
+                body.classList.replace('bg-slate-900', 'bg-slate-50');
+                body.classList.add('text-slate-800');
+                body.classList.remove('text-white');
+
+                blobs.classList.add('hidden');
+
+                navbar.classList.replace('bg-slate-800/80', 'bg-white/90');
+                navbar.classList.replace('border-slate-700', 'border-slate-200');
+
+                searchCard.classList.replace('bg-slate-800', 'bg-white');
+                searchCard.classList.replace('border-slate-700', 'border-slate-200');
+
+                urlInput.classList.replace('text-white', 'text-slate-700');
+                urlInput.classList.replace('placeholder-slate-500', 'placeholder-slate-400');
+
+                resultBody.classList.replace('bg-slate-800', 'bg-white');
+                resultBody.classList.replace('border-slate-700', 'border-slate-200');
+
+                mainHeading.classList.replace('text-white', 'text-slate-800');
+                subHeading.classList.replace('text-slate-400', 'text-slate-500');
+                userName.classList.replace('text-slate-300', 'text-slate-500');
+
+                // Feature section
+                if (featuresTitle) {
+                    featuresTitle.classList.replace('text-slate-200', 'text-slate-800');
+                }
+
+                // Feature cards
+                featureCards.forEach(card => {
+                    card.classList.replace('bg-slate-800/50', 'bg-white');
+                    card.classList.replace('border-slate-700', 'border-slate-200');
+                });
+
+                // Feature titles and descriptions
+                featureTitles.forEach(title => {
+                    title.classList.replace('text-white', 'text-slate-800');
+                });
+
+                featureDescs.forEach(desc => {
+                    desc.classList.replace('text-slate-400', 'text-slate-500');
+                });
+
+                // Specs card
+                if (specsCard) {
+                    specsCard.classList.replace('bg-slate-800/30', 'bg-slate-100');
+                    specsCard.classList.replace('border-slate-700', 'border-slate-300');
+                }
+
+                if (specsTitle) {
+                    specsTitle.classList.replace('text-white', 'text-slate-800');
+                }
+
+                if (specsDesc) {
+                    specsDesc.classList.replace('text-slate-400', 'text-slate-500');
+                }
+
+                // Specs items
+                specsItems.forEach(item => {
+                    item.classList.replace('text-slate-300', 'text-slate-500');
+                });
+
+                // Loading text
+                if (loadingText) {
+                    loadingText.classList.replace('text-slate-400', 'text-slate-500');
+                }
+
+                // AI Analysis text
+                if (aiTitle) {
+                    aiTitle.classList.replace('text-slate-200', 'text-slate-800');
+                }
+
+                if (aiExplanation) {
+                    aiExplanation.classList.replace('text-slate-400', 'text-slate-600');
+                }
+
+                // Icon change
+                themeIcon.classList.replace('fa-sun', 'fa-moon');
+                themeIcon.classList.replace('text-yellow-400', 'text-slate-600');
+            }
+        }
+
+        function viewHistory() {
+            alert('Scan history feature - to be implemented');
+        }
+
+        // --- URL Scan Logic ---
+        async function scanUrl() {
+            const input = document.getElementById('urlInput').value.trim();
+            const loading = document.getElementById('loading');
+            const resultCard = document.getElementById('resultCard');
+
+            if (!input) {
+                alert("Please enter a URL");
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Reset UI
+            resultCard.classList.add('hidden', 'opacity-0');
+            loading.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE}/scan/url`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ url: input })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    loading.classList.add('hidden');
+                    resultCard.classList.remove('hidden');
+                    setTimeout(() => resultCard.classList.remove('opacity-0', 'translate-y-4'), 50);
+
+                    // Update scan ID
+                    const scanIdElement = resultCard.querySelector('span');
+                    if (scanIdElement && scanIdElement.textContent.includes('Scan ID')) {
+                        scanIdElement.textContent = `Scan ID: #${data.scan_id}`;
+                    }
+
+                    updateUI(data);
+                } else {
+                    loading.classList.add('hidden');
+                    alert(data.error || 'Scan failed');
+                }
+            } catch (error) {
+                loading.classList.add('hidden');
+                alert('Connection error. Please check if the server is running.');
+            }
+        }
+
+        function updateUI(data) {
+            const header = document.getElementById('statusHeader');
+            const icon = document.getElementById('statusIcon');
+            const title = document.getElementById('statusTitle');
+            const sub = document.getElementById('statusSubtitle');
+            const aiText = document.getElementById('aiExplanation');
+            const scanIdSpan = document.querySelector('#resultCard span');
+
+            const isSafe = data.is_safe;
+            const threatLevel = data.threat_level || 'safe';
+
+            if (isSafe || threatLevel === 'safe') {
+                header.className = "rounded-t-2xl p-6 flex items-center gap-4 text-white bg-gradient-to-r from-emerald-500 to-green-600";
+                icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                title.innerText = "Safe Website";
+                sub.innerText = "Verified by PhishGuard AI";
+            } else {
+                // Set color based on threat level
+                let bgClass = "bg-gradient-to-r from-red-600 to-orange-600";
+                if (threatLevel === 'low') {
+                    bgClass = "bg-gradient-to-r from-yellow-500 to-orange-500";
+                } else if (threatLevel === 'medium') {
+                    bgClass = "bg-gradient-to-r from-orange-500 to-red-500";
+                } else if (threatLevel === 'high' || threatLevel === 'critical') {
+                    bgClass = "bg-gradient-to-r from-red-600 to-orange-600";
+                }
+
+                header.className = `rounded-t-2xl p-6 flex items-center gap-4 text-white ${bgClass}`;
+                icon.innerHTML = '<i class="fa-solid fa-radiation"></i>';
+                title.innerText = threatLevel === 'critical' ? "Critical Threat Detected" : "Phishing Detected";
+                sub.innerText = `${threatLevel.charAt(0).toUpperCase() + threatLevel.slice(1)} threat level identified`;
+            }
+
+            aiText.innerText = data.explanation || "Analysis complete.";
+
+            if (scanIdSpan && data.scan_id) {
+                scanIdSpan.textContent = `Scan ID: #${data.scan_id}`;
+            }
+        }
+    </script>
+</body>
+
+</html>

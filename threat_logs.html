@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PhishGuard - Threat Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for table */
+        .table-container {
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Animation for new entries */
+        @keyframes highlightNew {
+            0% {
+                background-color: rgba(239, 68, 68, 0.2);
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .new-entry {
+            animation: highlightNew 3s ease-out;
+        }
+
+        /* Fix for centered content - ensure proper alignment */
+        .table-fixed {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .table-fixed th:first-child,
+        .table-fixed td:first-child {
+            width: 160px;
+        }
+
+        .table-fixed th:nth-child(3),
+        .table-fixed td:nth-child(3) {
+            width: 250px;
+        }
+
+        .table-fixed th:nth-child(4),
+        .table-fixed td:nth-child(4) {
+            width: 150px;
+        }
+
+        .table-fixed th:nth-child(5),
+        .table-fixed td:nth-child(5) {
+            width: 100px;
+        }
+
+        .table-fixed th:nth-child(6),
+        .table-fixed td:nth-child(6) {
+            width: 80px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 font-sans text-slate-800 flex h-screen overflow-hidden">
+
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20">
+        <div class="h-16 flex items-center px-8 border-b border-slate-800">
+            <h1 class="font-bold text-white text-lg"><i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>
+                AdminPanel</h1>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="admin_dashboard.html"
+                class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fa-solid fa-chart-line w-6"></i> Dashboard
+            </a>
+            <a href="users.html" class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fa-solid fa-users w-6"></i> Users
+            </a>
+            <a href="threat_logs.html" class="flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg">
+                <i class="fa-solid fa-bug w-6"></i> Threat Logs
+            </a>
+        </nav>
+        <div class="p-4 border-t border-slate-800">
+            <button onclick="logout()" class="flex items-center text-red-400 hover:text-red-300 w-full">
+                <i class="fa-solid fa-right-from-bracket w-6"></i> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-y-auto">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold">Threat Detection Logs</h2>
+                <span id="logCount" class="bg-red-100 text-red-700 text-xs px-3 py-1 rounded-full font-bold">127
+                    Threats</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="relative">
+                        <i
+                            class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="searchLogs" placeholder="Search threats..."
+                            class="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                    </div>
+                    <select id="filterSeverity"
+                        class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                        <option value="all">All Severity</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div class="h-8 w-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-8">
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Total Threats</p>
+                    <h3 class="text-3xl font-bold text-red-600 mt-1">127</h3>
+                    <p class="text-red-500 text-xs mt-2 font-bold">↑ 8 today</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Critical Threats</p>
+                    <h3 class="text-3xl font-bold text-red-800 mt-1">42</h3>
+                    <p class="text-slate-400 text-xs mt-2">33% of total</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Unique Users</p>
+                    <h3 class="text-3xl font-bold text-slate-800 mt-1">89</h3>
+                    <p class="text-green-500 text-xs mt-2 font-bold">↑ 12 this week</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Avg Response Time</p>
+                    <h3 class="text-3xl font-bold text-blue-600 mt-1">0.8s</h3>
+                    <p class="text-green-500 text-xs mt-2 font-bold">System Optimal</p>
+                </div>
+            </div>
+
+            <!-- Threat Logs Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg">Threat Detection History</h3>
+                        <p class="text-slate-500 text-sm mt-1">All detected phishing attempts and malicious URLs</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="exportLogs()"
+                            class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2">
+                            <i class="fa-solid fa-download"></i> Export CSV
+                        </button>
+                        <button onclick="refreshLogs()"
+                            class="text-slate-600 hover:text-slate-800 text-sm font-medium flex items-center gap-2">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="table-fixed">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Timestamp</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">User / IP</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">URL</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Threat Type</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Severity</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="threatLogsTable">
+                            <!-- Row 1 -->
+                            <tr class="new-entry border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2024-03-15 14:32:19</div>
+                                    <div class="text-xs text-slate-500">Just now</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                            <i class="fa-solid fa-user text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">john.doe@company.com</div>
+                                            <div class="text-xs text-slate-500">192.168.1.45</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="max-w-xs">
+                                        <div class="text-sm font-medium truncate">paypaI-secure-login.com</div>
+                                        <div class="text-xs text-slate-500 truncate">Phishing: PayPal credential
+                                            harvesting</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fa-solid fa-key"></i> Credential Harvesting
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-700 text-white">
+                                        <i class="fa-solid fa-circle"></i> Critical
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <button onclick="viewDetails(1)"
+                                        class="text-blue-600 hover:text-blue-800 text-sm mr-3">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button onclick="blockSource(1)" class="text-red-600 hover:text-red-800 text-sm">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Row 2 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2024-03-15 13:45:22</div>
+                                    <div class="text-xs text-slate-500">45 min ago</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                                            <i class="fa-solid fa-user text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">sarah.wilson@company.com</div>
+                                            <div class="text-xs text-slate-500">192.168.1.78</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="max-w-xs">
+                                        <div class="text-sm font-medium truncate">amazon-verify-account.net</div>
+                                        <div class="text-xs text-slate-500 truncate">Malicious script injection detected
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        <i class="fa-solid fa-code"></i> Malicious Script
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-orange-600 text-white">
+                                        <i class="fa-solid fa-circle"></i> High
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <button onclick="viewDetails(2)"
+                                        class="text-blue-600 hover:text-blue-800 text-sm mr-3">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button onclick="blockSource(2)" class="text-red-600 hover:text-red-800 text-sm">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Row 3 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2024-03-15 11:20:15</div>
+                                    <div class="text-xs text-slate-500">3 hours ago</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                            <i class="fa-solid fa-user text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">Guest User</div>
+                                            <div class="text-xs text-slate-500">203.0.113.25</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="max-w-xs">
+                                        <div class="text-sm font-medium truncate">microsoft-office365-login.xyz</div>
+                                        <div class="text-xs text-slate-500 truncate">Domain spoofing with Office 365
+                                            branding</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <i class="fa-solid fa-globe"></i> Domain Spoofing
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500 text-white">
+                                        <i class="fa-solid fa-circle"></i> Medium
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <button onclick="viewDetails(3)"
+                                        class="text-blue-600 hover:text-blue-800 text-sm mr-3">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button onclick="blockSource(3)" class="text-red-600 hover:text-red-800 text-sm">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Row 4 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2024-03-14 16:55:10</div>
+                                    <div class="text-xs text-slate-500">Yesterday</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                            <i class="fa-solid fa-user text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">mike.jackson@company.com</div>
+                                            <div class="text-xs text-slate-500">192.168.1.92</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="max-w-xs">
+                                        <div class="text-sm font-medium truncate">secure-bank-login-update.com</div>
+                                        <div class="text-xs text-slate-500 truncate">Banking phishing with SSL
+                                            certificate mismatch</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fa-solid fa-university"></i> Banking Phishing
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-700 text-white">
+                                        <i class="fa-solid fa-circle"></i> Critical
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <button onclick="viewDetails(4)"
+                                        class="text-blue-600 hover:text-blue-800 text-sm mr-3">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button onclick="blockSource(4)" class="text-red-600 hover:text-red-800 text-sm">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Row 5 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2024-03-14 10:15:33</div>
+                                    <div class="text-xs text-slate-500">Yesterday</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                                            <i class="fa-solid fa-user text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">Guest User</div>
+                                            <div class="text-xs text-slate-500">198.51.100.33</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="max-w-xs">
+                                        <div class="text-sm font-medium truncate">app-store-giftcard-generator.cc</div>
+                                        <div class="text-xs text-slate-500 truncate">Social engineering with fake
+                                            rewards</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <i class="fa-solid fa-gift"></i> Social Engineering
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-500 text-white">
+                                        <i class="fa-solid fa-circle"></i> Low
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <button onclick="viewDetails(5)"
+                                        class="text-blue-600 hover:text-blue-800 text-sm mr-3">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button onclick="blockSource(5)" class="text-red-600 hover:text-red-800 text-sm">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="p-4 border-t border-slate-100 flex justify-between items-center">
+                    <div class="text-sm text-slate-600">
+                        Showing <span class="font-medium">1-5</span> of <span class="font-medium">127</span> threats
+                    </div>
+                    <div class="flex gap-2">
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-blue-500 bg-blue-50 text-blue-600 rounded text-sm font-medium">
+                            1
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            2
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            3
+                        </button>
+                        <span class="px-2 py-1 text-slate-400">...</span>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            26
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Threat Types Breakdown -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-lg mb-4">Threat Type Distribution</h3>
+                    <canvas id="threatTypeChart" height="200"></canvas>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"
+                    style="max-height: 500px;">
+                    <h3 class="font-bold text-lg mb-4 flex-shrink-0">Top Affected Users</h3>
+                    <div class="overflow-y-auto flex-1" style="min-height: 200px; max-height: 350px;">
+                        <div id="topAffectedUsers" class="space-y-4">
+                            <p class="text-slate-500 text-center py-4">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let threatTypeChart;
+        let currentThreats = [];
+
+        // Check authentication
+        window.onload = () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            fetch(`${API_BASE}/auth/verify`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.valid || data.user.role !== 'admin') {
+                        alert('Admin access required');
+                        window.location.href = 'user_dashboard.html';
+                        return;
+                    }
+                    loadThreats();
+                    loadStats();
+                    loadTopAffectedUsers();
+                })
+                .catch(() => {
+                    window.location.href = 'login.html';
+                });
+        };
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        async function loadStats() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/dashboard/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const stats = await res.json();
+
+                const threatBreakdown = stats.threat_breakdown || {};
+                const totalThreats = Object.values(threatBreakdown).reduce((a, b) => a + b, 0);
+                const criticalThreats = threatBreakdown.critical || 0;
+
+                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4 h3:nth-of-type(1)').textContent = totalThreats;
+                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4 h3:nth-of-type(2)').textContent = criticalThreats;
+                document.getElementById('logCount').textContent = `${totalThreats} Threats`;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadThreats() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/threats?per_page=100`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                currentThreats = data.threats || [];
+                displayThreats(currentThreats);
+
+                // Load threat types for chart
+                const typesRes = await fetch(`${API_BASE}/admin/analytics/threat-types`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const typesData = await typesRes.json();
+                updateThreatTypeChart(typesData.threat_types || {});
+            } catch (error) {
+                console.error('Error loading threats:', error);
+            }
+        }
+
+        async function loadTopAffectedUsers() {
+            const token = localStorage.getItem('token');
+            const container = document.getElementById('topAffectedUsers');
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/analytics/user-activity`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const topUsers = data.top_users || [];
+
+                if (topUsers.length === 0) {
+                    container.innerHTML = '<p class="text-slate-500 text-center py-4">No data available</p>';
+                    return;
+                }
+
+                const colors = [
+                    { bg: 'bg-blue-100', text: 'text-blue-600', badge: 'bg-red-100 text-red-700' },
+                    { bg: 'bg-purple-100', text: 'text-purple-600', badge: 'bg-orange-100 text-orange-700' },
+                    { bg: 'bg-green-100', text: 'text-green-600', badge: 'bg-yellow-100 text-yellow-700' },
+                    { bg: 'bg-pink-100', text: 'text-pink-600', badge: 'bg-blue-100 text-blue-700' },
+                    { bg: 'bg-indigo-100', text: 'text-indigo-600', badge: 'bg-purple-100 text-purple-700' }
+                ];
+
+                container.innerHTML = topUsers.map((user, index) => {
+                    const color = colors[index % colors.length];
+                    return `
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="h-10 w-10 ${color.bg} rounded-full flex items-center justify-center ${color.text}">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold">${user.email}</p>
+                                    <p class="text-xs text-slate-500">${user.name}</p>
+                                </div>
+                            </div>
+                            <span class="${color.badge} px-3 py-1 rounded-full text-xs font-bold">
+                                ${user.threat_count} threat${user.threat_count !== 1 ? 's' : ''}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading top affected users:', error);
+                container.innerHTML = '<p class="text-slate-500 text-center py-4">Failed to load data</p>';
+            }
+        }
+
+        function displayThreats(threats) {
+            const tbody = document.getElementById('threatLogsTable');
+            if (threats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">No threats found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = threats.map(threat => {
+                const severityColors = {
+                    'critical': 'bg-red-700 text-white',
+                    'high': 'bg-orange-600 text-white',
+                    'medium': 'bg-yellow-500 text-white',
+                    'low': 'bg-blue-500 text-white'
+                };
+
+                return `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-4">
+                            <div class="text-sm font-medium">${new Date(threat.created_at).toLocaleString()}</div>
+                            <div class="text-xs text-slate-500">${getTimeAgo(threat.created_at)}</div>
+                        </td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-2">
+                                <div class="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                    <i class="fa-solid fa-user text-xs"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium">${threat.user ? threat.user.email : 'Unknown'}</div>
+                                    <div class="text-xs text-slate-500">${threat.ip_address || 'N/A'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <div class="max-w-xs">
+                                <div class="text-sm font-medium truncate">${threat.url.substring(0, 50)}${threat.url.length > 50 ? '...' : ''}</div>
+                                <div class="text-xs text-slate-500 truncate">${threat.threat_type || 'Unknown threat'}</div>
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="fa-solid fa-key"></i> ${threat.threat_type || 'Unknown'}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${severityColors[threat.threat_level] || 'bg-gray-500 text-white'}">
+                                <i class="fa-solid fa-circle"></i> ${threat.threat_level.charAt(0).toUpperCase() + threat.threat_level.slice(1)}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <button onclick="viewDetails(${threat.id})" class="text-blue-600 hover:text-blue-800 text-sm mr-3">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getTimeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} min ago`;
+            if (diffHours < 24) return `${diffHours} hours ago`;
+            return `${diffDays} days ago`;
+        }
+
+        function updateThreatTypeChart(types) {
+            const ctx = document.getElementById('threatTypeChart').getContext('2d');
+            if (threatTypeChart) threatTypeChart.destroy();
+
+            const labels = Object.keys(types);
+            const data = Object.values(types);
+
+            threatTypeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(234, 179, 8, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(139, 92, 246, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(249, 115, 22, 1)',
+                            'rgba(234, 179, 8, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(139, 92, 246, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+        }
+
+        // Threat Type Chart
+        const threatTypeCtx = document.getElementById('threatTypeChart').getContext('2d');
+        threatTypeChart = new Chart(threatTypeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Credential Harvesting', 'Malicious Script', 'Domain Spoofing', 'Social Engineering', 'Banking Phishing'],
+                datasets: [{
+                    data: [45, 32, 18, 22, 10],
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.8)',
+                        'rgba(249, 115, 22, 0.8)',
+                        'rgba(234, 179, 8, 0.8)',
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(139, 92, 246, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(249, 115, 22, 1)',
+                        'rgba(234, 179, 8, 1)',
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(139, 92, 246, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+
+        // Search functionality
+        document.getElementById('searchLogs').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = currentThreats.filter(threat =>
+                threat.url.toLowerCase().includes(searchTerm) ||
+                (threat.threat_type && threat.threat_type.toLowerCase().includes(searchTerm)) ||
+                (threat.user && threat.user.email.toLowerCase().includes(searchTerm))
+            );
+            displayThreats(filtered);
+        });
+
+        // Filter by severity
+        document.getElementById('filterSeverity').addEventListener('change', function (e) {
+            const selectedSeverity = e.target.value;
+            let filtered = currentThreats;
+
+            if (selectedSeverity !== 'all') {
+                filtered = currentThreats.filter(threat => threat.threat_level === selectedSeverity);
+            }
+
+            displayThreats(filtered);
+        });
+
+        function viewDetails(id) {
+            const threat = currentThreats.find(t => t.id === id);
+            if (threat) {
+                alert(`Threat Details:\n\nURL: ${threat.url}\nThreat Level: ${threat.threat_level}\nThreat Type: ${threat.threat_type || 'Unknown'}\nExplanation: ${threat.ai_explanation || 'N/A'}\nDetected: ${new Date(threat.created_at).toLocaleString()}`);
+            }
+        }
+
+        function blockSource(id) {
+            alert('Blocking feature - to be implemented');
+        }
+
+        function exportLogs() {
+            // Simple CSV export
+            const csv = [
+                ['URL', 'Threat Level', 'Threat Type', 'Date', 'User'].join(','),
+                ...currentThreats.map(t => [
+                    `"${t.url}"`,
+                    t.threat_level,
+                    t.threat_type || 'Unknown',
+                    new Date(t.created_at).toISOString(),
+                    t.user ? t.user.email : 'Unknown'
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `threat_logs_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        function refreshLogs() {
+            loadThreats();
+            loadStats();
+        }
+
+    </script>
+</body>
+
+</html>

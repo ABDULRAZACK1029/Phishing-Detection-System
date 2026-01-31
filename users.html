@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PhishGuard - User Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar */
+        .table-container {
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        /* Animation for status change */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 font-sans text-slate-800 flex h-screen overflow-hidden">
+
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20">
+        <div class="h-16 flex items-center px-8 border-b border-slate-800">
+            <h1 class="font-bold text-white text-lg"><i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>
+                AdminPanel</h1>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="admin_dashboard.html"
+                class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fa-solid fa-chart-line w-6"></i> Dashboard
+            </a>
+            <a href="users.html" class="flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg">
+                <i class="fa-solid fa-users w-6"></i> Users
+            </a>
+            <a href="threat_logs.html"
+                class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors">
+                <i class="fa-solid fa-bug w-6"></i> Threat Logs
+            </a>
+        </nav>
+        <div class="p-4 border-t border-slate-800">
+            <button onclick="logout()" class="flex items-center text-red-400 hover:text-red-300 w-full">
+                <i class="fa-solid fa-right-from-bracket w-6"></i> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-y-auto">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold">User Management</h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="showAddUserModal()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                    <i class="fa-solid fa-user-plus"></i> Add New User
+                </button>
+                <div class="h-8 w-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-8">
+            <!-- User Statistics -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Total Users</p>
+                    <h3 class="text-3xl font-bold text-slate-800 mt-1">1,428</h3>
+                    <p class="text-green-500 text-xs mt-2 font-bold">↑ 5% this month</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Active Today</p>
+                    <h3 class="text-3xl font-bold text-green-600 mt-1">302</h3>
+                    <p class="text-slate-400 text-xs mt-2">21% of total</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Admin Users</p>
+                    <h3 class="text-3xl font-bold text-blue-600 mt-1">12</h3>
+                    <p class="text-blue-500 text-xs mt-2 font-bold">System Administrators</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-sm font-medium">Avg Scans/User</p>
+                    <h3 class="text-3xl font-bold text-purple-600 mt-1">8.4</h3>
+                    <p class="text-slate-400 text-xs mt-2">Weekly average</p>
+                </div>
+            </div>
+
+            <!-- User Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg">All Registered Users</h3>
+                        <p class="text-slate-500 text-sm mt-1">Manage user accounts, permissions, and access levels</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <i
+                                class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="searchUsers" placeholder="Search users..."
+                                class="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                        </div>
+                        <select id="filterUserType"
+                            class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                            <option value="all">All Types</option>
+                            <option value="admin">Admin</option>
+                            <option value="user">Regular User</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">User Details</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Account Type</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Status</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Last Active</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Scans</th>
+                                <th class="text-left p-4 text-sm font-semibold text-slate-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable">
+                            <!-- User 1 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                            <i class="fa-solid fa-user-shield"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold">Alex Johnson</div>
+                                            <div class="text-xs text-slate-500">alex.johnson@company.com</div>
+                                            <div class="text-xs text-slate-500">User ID: #ADM001</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        <i class="fa-solid fa-crown"></i> Administrator
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-2 bg-green-500 rounded-full"></div>
+                                        <span class="text-sm text-green-700 font-medium">Active</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">Today, 14:32</div>
+                                    <div class="text-xs text-slate-500">From: 192.168.1.100</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-center">
+                                        <div class="text-lg font-bold text-blue-600">142</div>
+                                        <div class="text-xs text-slate-500">Total scans</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="viewUserDetails(1)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm p-2 hover:bg-blue-50 rounded"
+                                            title="View Details">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                        <button onclick="editUser(1)"
+                                            class="text-green-600 hover:text-green-800 text-sm p-2 hover:bg-green-50 rounded"
+                                            title="Edit">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button onclick="deleteUser(1)"
+                                            class="text-red-600 hover:text-red-800 text-sm p-2 hover:bg-red-50 rounded"
+                                            title="Delete">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- User 2 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                            <i class="fa-solid fa-user"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold">Sarah Wilson</div>
+                                            <div class="text-xs text-slate-500">sarah.w@finance.com</div>
+                                            <div class="text-xs text-slate-500">User ID: #USR452</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fa-solid fa-user"></i> Premium User
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-2 bg-green-500 rounded-full"></div>
+                                        <span class="text-sm text-green-700 font-medium">Active</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">Today, 10:15</div>
+                                    <div class="text-xs text-slate-500">From: 203.0.113.45</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-center">
+                                        <div class="text-lg font-bold text-blue-600">89</div>
+                                        <div class="text-xs text-slate-500">Total scans</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="viewUserDetails(2)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm p-2 hover:bg-blue-50 rounded">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                        <button onclick="editUser(2)"
+                                            class="text-green-600 hover:text-green-800 text-sm p-2 hover:bg-green-50 rounded">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button onclick="deleteUser(2)"
+                                            class="text-red-600 hover:text-red-800 text-sm p-2 hover:bg-red-50 rounded">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- User 3 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                                            <i class="fa-solid fa-user"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold">Mike Chen</div>
+                                            <div class="text-xs text-slate-500">mike.chen@tech.org</div>
+                                            <div class="text-xs text-slate-500">User ID: #USR889</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <i class="fa-solid fa-user"></i> Regular User
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-2 bg-yellow-500 rounded-full"></div>
+                                        <span class="text-sm text-yellow-700 font-medium">Idle</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2 days ago</div>
+                                    <div class="text-xs text-slate-500">Last IP: 198.51.100.22</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-center">
+                                        <div class="text-lg font-bold text-blue-600">45</div>
+                                        <div class="text-xs text-slate-500">Total scans</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="viewUserDetails(3)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm p-2 hover:bg-blue-50 rounded">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                        <button onclick="editUser(3)"
+                                            class="text-green-600 hover:text-green-800 text-sm p-2 hover:bg-green-50 rounded">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button onclick="deleteUser(3)"
+                                            class="text-red-600 hover:text-red-800 text-sm p-2 hover:bg-red-50 rounded">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- User 4 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                                            <i class="fa-solid fa-user-clock"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold">Emma Davis</div>
+                                            <div class="text-xs text-slate-500">emma.d@consulting.com</div>
+                                            <div class="text-xs text-slate-500">User ID: #USR233</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <i class="fa-solid fa-hourglass-half"></i> Guest User
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-2 bg-red-500 rounded-full"></div>
+                                        <span class="text-sm text-red-700 font-medium">Inactive</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">2 weeks ago</div>
+                                    <div class="text-xs text-slate-500">Trial expired</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-center">
+                                        <div class="text-lg font-bold text-blue-600">12</div>
+                                        <div class="text-xs text-slate-500">Total scans</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="viewUserDetails(4)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm p-2 hover:bg-blue-50 rounded">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                        <button onclick="editUser(4)"
+                                            class="text-green-600 hover:text-green-800 text-sm p-2 hover:bg-green-50 rounded">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button onclick="deleteUser(4)"
+                                            class="text-red-600 hover:text-red-800 text-sm p-2 hover:bg-red-50 rounded">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- User 5 -->
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                                            <i class="fa-solid fa-user-shield"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold">Robert Kim</div>
+                                            <div class="text-xs text-slate-500">robert.k@security.com</div>
+                                            <div class="text-xs text-slate-500">User ID: #ADM002</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        <i class="fa-solid fa-crown"></i> Administrator
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-2 bg-green-500 rounded-full"></div>
+                                        <span class="text-sm text-green-700 font-medium">Active</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-sm font-medium">Yesterday, 18:45</div>
+                                    <div class="text-xs text-slate-500">From: 10.0.0.15</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="text-center">
+                                        <div class="text-lg font-bold text-blue-600">256</div>
+                                        <div class="text-xs text-slate-500">Total scans</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="viewUserDetails(5)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm p-2 hover:bg-blue-50 rounded">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                        <button onclick="editUser(5)"
+                                            class="text-green-600 hover:text-green-800 text-sm p-2 hover:bg-green-50 rounded">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button onclick="deleteUser(5)"
+                                            class="text-red-600 hover:text-red-800 text-sm p-2 hover:bg-red-50 rounded">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="p-4 border-t border-slate-100 flex justify-between items-center">
+                    <div class="text-sm text-slate-600">
+                        Showing <span class="font-medium">1-5</span> of <span class="font-medium">1,428</span> users
+                    </div>
+                    <div class="flex gap-2">
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-blue-500 bg-blue-50 text-blue-600 rounded text-sm font-medium">
+                            1
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            2
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            3
+                        </button>
+                        <span class="px-2 py-1 text-slate-400">...</span>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            286
+                        </button>
+                        <button
+                            class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Type Distribution -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-lg mb-4">User Type Distribution</h3>
+                    <canvas id="userTypeChart" height="200"></canvas>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-lg mb-4">Recent User Activity</h3>
+                    <div class="space-y-4">
+                        <div
+                            class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="h-8 w-8 bg-green-200 rounded-full flex items-center justify-center text-green-700">
+                                    <i class="fa-solid fa-user-plus text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold">New user registered</p>
+                                    <p class="text-xs text-green-600">John Doe joined 2 hours ago</p>
+                                </div>
+                            </div>
+                            <span class="text-xs text-slate-500">14:30</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="h-8 w-8 bg-blue-200 rounded-full flex items-center justify-center text-blue-700">
+                                    <i class="fa-solid fa-shield text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold">User role updated</p>
+                                    <p class="text-xs text-blue-600">Sarah promoted to Premium</p>
+                                </div>
+                            </div>
+                            <span class="text-xs text-slate-500">Today, 10:15</span>
+                        </div>
+                        <div
+                            class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="h-8 w-8 bg-yellow-200 rounded-full flex items-center justify-center text-yellow-700">
+                                    <i class="fa-solid fa-bug text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold">Threat detected</p>
+                                    <p class="text-xs text-yellow-600">Mike reported a phishing site</p>
+                                </div>
+                            </div>
+                            <span class="text-xs text-slate-500">Yesterday</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 fade-in">
+            <div class="p-6 border-b border-slate-200">
+                <h3 class="text-lg font-bold">Add New User</h3>
+                <p class="text-slate-500 text-sm mt-1">Create a new user account</p>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-slate-700">Full Name</label>
+                        <input type="text" id="newUserName"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                            placeholder="John Doe">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-slate-700">Email Address</label>
+                        <input type="email" id="newUserEmail"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                            placeholder="john@example.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-slate-700">User Type</label>
+                        <select id="newUserType"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="user">Regular User</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-slate-700">Password</label>
+                        <input type="password" id="newUserPassword"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-200 flex justify-end gap-3">
+                <button onclick="hideAddUserModal()"
+                    class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="addNewUser()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    Create User
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let userTypeChart;
+        let currentUsers = [];
+
+        // Check authentication
+        window.onload = () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            fetch(`${API_BASE}/auth/verify`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.valid || data.user.role !== 'admin') {
+                        alert('Admin access required');
+                        window.location.href = 'user_dashboard.html';
+                        return;
+                    }
+                    loadUsers();
+                    loadStats();
+                })
+                .catch(() => {
+                    window.location.href = 'login.html';
+                });
+        };
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        async function loadStats() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/dashboard/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const stats = await res.json();
+
+                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4 h3:nth-of-type(1)').textContent = stats.total_users || 0;
+                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4 h3:nth-of-type(2)').textContent = stats.active_users || 0;
+                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4 h3:nth-of-type(3)').textContent = stats.admin_users || 0;
+                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4 h3:nth-of-type(4)').textContent = stats.avg_scans_per_user || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadUsers() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/users?per_page=100`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                currentUsers = data.users || [];
+                displayUsers(currentUsers);
+                updateUserTypeChart(currentUsers);
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = users.map(user => `
+                <tr class="border-b border-slate-100 hover:bg-slate-50">
+                    <td class="p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="h-10 w-10 ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'} rounded-full flex items-center justify-center">
+                                <i class="fa-solid ${user.role === 'admin' ? 'fa-user-shield' : 'fa-user'}"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold">${user.name}</div>
+                                <div class="text-xs text-slate-500">${user.email}</div>
+                                <div class="text-xs text-slate-500">User ID: #${user.id.toString().padStart(6, '0')}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
+                            <i class="fa-solid ${user.role === 'admin' ? 'fa-crown' : 'fa-user'}"></i> ${user.role === 'admin' ? 'Administrator' : 'Regular User'}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2">
+                            <div class="h-2 w-2 ${user.is_active ? 'bg-green-500' : 'bg-red-500'} rounded-full"></div>
+                            <span class="text-sm ${user.is_active ? 'text-green-700' : 'text-red-700'} font-medium">${user.is_active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <div class="text-sm font-medium">${user.last_active ? new Date(user.last_active).toLocaleString() : 'Never'}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-blue-600">${user.scan_count || 0}</div>
+                            <div class="text-xs text-slate-500">Total scans</div>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2">
+                            <button onclick="viewUserDetails(${user.id})" class="text-blue-600 hover:text-blue-800 text-sm p-2 hover:bg-blue-50 rounded">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button onclick="editUser(${user.id})" class="text-green-600 hover:text-green-800 text-sm p-2 hover:bg-green-50 rounded">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800 text-sm p-2 hover:bg-red-50 rounded">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateUserTypeChart(users) {
+            const adminCount = users.filter(u => u.role === 'admin').length;
+            const userCount = users.filter(u => u.role === 'user').length;
+
+            const ctx = document.getElementById('userTypeChart').getContext('2d');
+            if (userTypeChart) userTypeChart.destroy();
+
+            userTypeChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Regular Users', 'Administrators'],
+                    datasets: [{
+                        data: [userCount, adminCount],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(139, 92, 246, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(139, 92, 246, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+        }
+
+        // User Type Chart
+        const userTypeCtx = document.getElementById('userTypeChart').getContext('2d');
+        userTypeChart = new Chart(userTypeCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Regular Users', 'Premium Users', 'Administrators', 'Guest Users'],
+                datasets: [{
+                    data: [856, 302, 12, 258],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                        'rgba(234, 179, 8, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(139, 92, 246, 1)',
+                        'rgba(234, 179, 8, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+
+        // Search functionality
+        document.getElementById('searchUsers').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = currentUsers.filter(user =>
+                user.name.toLowerCase().includes(searchTerm) ||
+                user.email.toLowerCase().includes(searchTerm)
+            );
+            displayUsers(filtered);
+        });
+
+        // Filter by user type
+        document.getElementById('filterUserType').addEventListener('change', function (e) {
+            const selectedType = e.target.value;
+            let filtered = currentUsers;
+
+            if (selectedType !== 'all') {
+                filtered = currentUsers.filter(user => user.role === selectedType);
+            }
+
+            displayUsers(filtered);
+        });
+
+        // Modal functions
+        function showAddUserModal() {
+            document.getElementById('addUserModal').classList.remove('hidden');
+        }
+
+        function hideAddUserModal() {
+            document.getElementById('addUserModal').classList.add('hidden');
+        }
+
+        async function addNewUser() {
+            const name = document.getElementById('newUserName').value;
+            const email = document.getElementById('newUserEmail').value;
+            const type = document.getElementById('newUserType').value;
+            const password = document.getElementById('newUserPassword').value;
+
+            if (!name || !email || !password) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        password,
+                        role: type === 'admin' ? 'admin' : 'user'
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert(`User created successfully!`);
+                    hideAddUserModal();
+                    loadUsers();
+                    loadStats();
+
+                    // Clear form
+                    document.getElementById('newUserName').value = '';
+                    document.getElementById('newUserEmail').value = '';
+                    document.getElementById('newUserType').value = 'regular';
+                    document.getElementById('newUserPassword').value = '';
+                } else {
+                    alert(data.error || 'Failed to create user');
+                }
+            } catch (error) {
+                alert('Error creating user');
+            }
+        }
+
+        function viewUserDetails(id) {
+            const user = currentUsers.find(u => u.id === id);
+            if (user) {
+                alert(`User Details:\n\nName: ${user.name}\nEmail: ${user.email}\nRole: ${user.role}\nScans: ${user.scan_count || 0}`);
+            }
+        }
+
+        function editUser(id) {
+            const user = currentUsers.find(u => u.id === id);
+            if (user) {
+                const newRole = prompt(`Change role for ${user.name}:\nCurrent: ${user.role}\nEnter 'admin' or 'user':`, user.role);
+                if (newRole && (newRole === 'admin' || newRole === 'user')) {
+                    updateUser(id, { role: newRole });
+                }
+            }
+        }
+
+        async function updateUser(id, updates) {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/users/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updates)
+                });
+
+                if (res.ok) {
+                    loadUsers();
+                    loadStats();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Failed to update user');
+                }
+            } catch (error) {
+                alert('Error updating user');
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_BASE}/admin/users/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (res.ok) {
+                    alert('User deleted successfully');
+                    loadUsers();
+                    loadStats();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Failed to delete user');
+                }
+            } catch (error) {
+                alert('Error deleting user');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('addUserModal').addEventListener('click', function (e) {
+            if (e.target.id === 'addUserModal') {
+                hideAddUserModal();
+            }
+        });
+    </script>
+</body>
+
+</html>

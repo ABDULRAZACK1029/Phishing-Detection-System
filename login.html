@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,11 +8,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
+
 <body class="bg-slate-900 text-white flex items-center justify-center h-screen relative overflow-hidden">
 
     <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-        <div class="absolute top-10 left-10 w-72 h-72 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div class="absolute top-10 right-10 w-72 h-72 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div
+            class="absolute top-10 left-10 w-72 h-72 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob">
+        </div>
+        <div
+            class="absolute top-10 right-10 w-72 h-72 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000">
+        </div>
     </div>
 
     <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
@@ -25,16 +31,22 @@
         <form onsubmit="handleLogin(event)">
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-2 text-slate-300">Email Address</label>
-                <input type="email" id="email" placeholder="user@example.com" class="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 focus:border-blue-500 focus:outline-none text-white transition-colors" required>
+                <input type="email" id="email" placeholder="user@example.com"
+                    class="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 focus:border-blue-500 focus:outline-none text-white transition-colors"
+                    required>
             </div>
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300">Password</label>
-                <input type="password" id="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 focus:border-blue-500 focus:outline-none text-white transition-colors" required>
+                <input type="password" id="password" placeholder="••••••••"
+                    class="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 focus:border-blue-500 focus:outline-none text-white transition-colors"
+                    required>
             </div>
-            
-            <div id="errorMessage" class="hidden mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-sm"></div>
-            
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg hover:shadow-blue-500/30">
+
+            <div id="errorMessage"
+                class="hidden mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-sm"></div>
+
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg hover:shadow-blue-500/30">
                 Sign In
             </button>
         </form>
@@ -46,19 +58,23 @@
         </div>
     </div>
 
-    <div id="cookie-banner" class="fixed bottom-0 left-0 w-full bg-slate-800 border-t border-slate-700 p-4 transform translate-y-full transition-transform duration-500 flex flex-col sm:flex-row justify-between items-center shadow-2xl z-50">
+    <div id="cookie-banner"
+        class="fixed bottom-0 left-0 w-full bg-slate-800 border-t border-slate-700 p-4 transform translate-y-full transition-transform duration-500 flex flex-col sm:flex-row justify-between items-center shadow-2xl z-50">
         <div class="mb-4 sm:mb-0">
-            <p class="text-sm text-slate-300">We use cookies to enhance security and analyze traffic. <a href="#" class="text-blue-400 underline">Learn more</a>.</p>
+            <p class="text-sm text-slate-300">We use cookies to enhance security and analyze traffic. <a href="#"
+                    class="text-blue-400 underline">Learn more</a>.</p>
         </div>
         <div class="flex gap-3">
-            <button onclick="acceptCookies()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition-colors">Accept</button>
-            <button onclick="hideCookieBanner()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors">Decline</button>
+            <button onclick="acceptCookies()"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition-colors">Accept</button>
+            <button onclick="hideCookieBanner()"
+                class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors">Decline</button>
         </div>
     </div>
 
     <script>
         const API_BASE = 'http://localhost:5000/api';
-        
+
         // Check if user is already logged in
         window.onload = () => {
             const token = localStorage.getItem('token');
@@ -69,35 +85,35 @@
                         'Authorization': `Bearer ${token}`
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.valid) {
-                        // Redirect based on role
-                        if (data.user.role === 'admin') {
-                            window.location.href = 'admin_dashboard.html';
-                        } else {
-                            window.location.href = 'user_dashboard.html';
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.valid) {
+                            // Redirect based on role
+                            if (data.user.role === 'admin') {
+                                window.location.href = 'admin_dashboard.html';
+                            } else {
+                                window.location.href = 'user_dashboard.html';
+                            }
                         }
-                    }
-                })
-                .catch(() => {
-                    localStorage.removeItem('token');
-                });
+                    })
+                    .catch(() => {
+                        localStorage.removeItem('token');
+                    });
             }
-            
+
             // Cookie banner
             setTimeout(() => {
                 document.getElementById('cookie-banner').classList.remove('translate-y-full');
             }, 1000);
         };
-        
+
         // Login Handler
         async function handleLogin(e) {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('errorMessage');
-            
+
             try {
                 const response = await fetch(`${API_BASE}/auth/login`, {
                     method: 'POST',
@@ -106,14 +122,14 @@
                     },
                     body: JSON.stringify({ email, password })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     // Store token
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    
+
                     // Redirect based on role
                     if (data.user.role === 'admin') {
                         window.location.href = 'admin_dashboard.html';
@@ -136,10 +152,11 @@
             // Store consent in localStorage
             localStorage.setItem('cookieConsent', 'true');
         }
-        
+
         function hideCookieBanner() {
             document.getElementById('cookie-banner').classList.add('translate-y-full');
         }
     </script>
 </body>
+
 </html>

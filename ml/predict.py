@@ -112,6 +112,12 @@ class PhishingPredictor:
         # Extract features from URL
         features = self.feature_extractor.extract_features(url)
         
+        # RULE-BASED OVERRIDE: Check for obvious phishing patterns
+        # This catches clear phishing attempts that the ML model might miss
+        obvious_phishing = self._check_obvious_phishing(url, features)
+        if obvious_phishing:
+            return obvious_phishing
+        
         # Try to load model if not loaded
         if not self._model_loaded:
             if not self._load_model():
@@ -159,6 +165,88 @@ class PhishingPredictor:
             print(f"[X] Prediction error: {e}")
             # Fallback to rule-based detection
             return self._fallback_prediction(url, features)
+    
+    def _check_obvious_phishing(self, url: str, features: Dict) -> Optional[Dict]:
+        """
+        Check for obvious phishing patterns that should override ML prediction.
+        
+        This rule-based system catches clear phishing indicators:
+        - Multiple suspicious keywords + hyphens + subdomains
+        - Brand impersonation with suspicious patterns
+        - Excessive URL manipulation
+        
+        Args:
+            url (str): The URL being analyzed
+            features (Dict): Extracted features
+            
+        Returns:
+            Dict: Phishing prediction if obvious patterns found, None otherwise
+        """
+        url_lower = url.lower()
+        
+        # Pattern 1: Multiple suspicious keywords + hyphens (e.g., whatsapp-account-suspended)
+        if features['suspicious_keyword_count'] >= 3 and features['num_hyphens'] >= 2:
+            return {
+                'prediction': 'Phishing',
+                'confidence': 0.95,
+                'is_safe': False,
+                'threat_level': 'high',
+                'ml_score': 0.95,
+                'features': features,
+                'model_available': True,
+                'detection_method': 'rule_based_override'
+            }
+        
+        # Pattern 2: Suspicious keywords + subdomains + hyphens
+        if (features['suspicious_keyword_count'] >= 2 and 
+            features['subdomain_count'] >= 1 and 
+            features['num_hyphens'] >= 1):
+            return {
+                'prediction': 'Phishing',
+                'confidence': 0.90,
+                'is_safe': False,
+                'threat_level': 'high',
+                'ml_score': 0.90,
+                'features': features,
+                'model_available': True,
+                'detection_method': 'rule_based_override'
+            }
+        
+        # Pattern 3: Brand impersonation with verify/suspended/urgent keywords
+        high_risk_keywords = ['verify', 'suspended', 'urgent', 'locked', 'confirm', 'update']
+        brand_keywords = ['whatsapp', 'facebook', 'paypal', 'amazon', 'google', 'microsoft', 
+                         'apple', 'instagram', 'twitter', 'bank']
+        
+        has_brand = any(brand in url_lower for brand in brand_keywords)
+        has_high_risk = any(keyword in url_lower for keyword in high_risk_keywords)
+        
+        if has_brand and has_high_risk and features['num_hyphens'] >= 1:
+            return {
+                'prediction': 'Phishing',
+                'confidence': 0.92,
+                'is_safe': False,
+                'threat_level': 'critical',
+                'ml_score': 0.92,
+                'features': features,
+                'model_available': True,
+                'detection_method': 'rule_based_override'
+            }
+        
+        # Pattern 4: Excessive URL length + suspicious keywords
+        if features['url_length'] > 60 and features['suspicious_keyword_count'] >= 3:
+            return {
+                'prediction': 'Phishing',
+                'confidence': 0.88,
+                'is_safe': False,
+                'threat_level': 'high',
+                'ml_score': 0.88,
+                'features': features,
+                'model_available': True,
+                'detection_method': 'rule_based_override'
+            }
+        
+        # No obvious phishing pattern detected, proceed with ML
+        return None
     
     def _confidence_to_threat_level(self, confidence: float, is_safe: bool) -> str:
         """

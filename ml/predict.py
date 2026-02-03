@@ -156,7 +156,7 @@ class PhishingPredictor:
             return result
             
         except Exception as e:
-            print(f"❌ Prediction error: {e}")
+            print(f"[X] Prediction error: {e}")
             # Fallback to rule-based detection
             return self._fallback_prediction(url, features)
     

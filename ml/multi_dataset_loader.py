@@ -98,6 +98,60 @@ class MultiDatasetLoader:
             df = pd.DataFrame(columns=['url', 'label'])
             return df
     
+    
+    def load_mendeley_dataset(self) -> pd.DataFrame:
+        """
+        Load Mendeley 'Phishing vs Legitimate URLs' dataset (vfszbj9b36).
+        Expected filename: ml/datasets/mendeley_dataset.csv
+        """
+        cache_file = self.cache_dir / 'mendeley_dataset.csv'
+        
+        if not cache_file.exists():
+            print("[-] Mendeley dataset not found in ml/datasets/mendeley_dataset.csv")
+            return pd.DataFrame(columns=['url', 'label'])
+            
+        print(f"[*] Loading Mendeley dataset from {cache_file}...")
+        try:
+            # Try reading with different encodings just in case
+            try:
+                df = pd.read_csv(cache_file)
+            except UnicodeDecodeError:
+                df = pd.read_csv(cache_file, encoding='latin1')
+                
+            # Normalize column names
+            df.columns = [c.lower() for c in df.columns]
+            
+            # Identify columns
+            url_col = next((c for c in df.columns if 'url' in c), None)
+            label_col = next((c for c in df.columns if 'status' in c or 'label' in c or 'type' in c), None)
+            
+            if not url_col or not label_col:
+                print(f"[!] Could not identify URL/Label columns in {df.columns}")
+                return pd.DataFrame(columns=['url', 'label'])
+            
+            # Normalize DataFrame
+            df = df.rename(columns={url_col: 'url', label_col: 'label'})
+            df = df[['url', 'label']]
+            
+            # Map labels to 0/1 if they are strings (legitimate/phishing)
+            # Mendeley dataset often has 'legitimate' and 'phishing' strings
+            if df['label'].dtype == 'O': 
+                df['label'] = df['label'].map({
+                    'legitimate': 0, 'Legitimate': 0, '0': 0, 0: 0,
+                    'phishing': 1, 'Phishing': 1, '1': 1, 1: 1
+                })
+            
+            # Drop unmapped rows
+            df = df.dropna(subset=['label'])
+            df['label'] = df['label'].astype(int)
+            
+            print(f"[OK] Loaded {len(df)} URLs from Mendeley dataset")
+            return df
+            
+        except Exception as e:
+            print(f"[!] Error loading Mendeley dataset: {e}")
+            return pd.DataFrame(columns=['url', 'label'])
+
     def download_phishtank_dataset(self, limit: int = 10000) -> pd.DataFrame:
         """
         Download live phishing data from PhishTank.
@@ -279,6 +333,16 @@ class MultiDatasetLoader:
                     features['has_homograph'],
                     features['subdomain_count'],
                     features['path_depth'],
+                    features['entropy'],
+                    features['digit_ratio'],
+                    features['longest_token_len'],
+                    features['tld_in_path'],
+                    features['is_shortened'],
+                    features['is_suspicious_tld'],
+                    features['has_client_server'],
+                    features['domain_token_count'],
+                    features['path_token_count'],
+                    features['is_punycode']
                 ]
                 
                 X.append(feature_vector)
@@ -304,6 +368,7 @@ class MultiDatasetLoader:
     def load_and_combine_datasets(self, 
                                   use_phiusiil: bool = True,
                                   use_phishtank: bool = True,
+                                  use_mendeley: bool = True,
                                   balance_classes: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load and combine all datasets with feature extraction.
@@ -311,6 +376,7 @@ class MultiDatasetLoader:
         Args:
             use_phiusiil (bool): Include PhiUSIIL dataset
             use_phishtank (bool): Include PhishTank dataset
+            use_mendeley (bool): Include Mendeley dataset
             balance_classes (bool): Balance legitimate/phishing classes
             
         Returns:
@@ -321,6 +387,16 @@ class MultiDatasetLoader:
         print("=" * 70)
         
         all_dfs = []
+        
+        # Load Mendeley Dataset (High Priority - Real Data)
+        if use_mendeley:
+            try:
+                df_mendeley = self.load_mendeley_dataset()
+                if len(df_mendeley) > 0:
+                    all_dfs.append(df_mendeley)
+                    print(f"  [OK] Mendeley: {len(df_mendeley)} URLs")
+            except Exception as e:
+                print(f"  ✗ Mendeley failed: {e}")
         
         # Load PhiUSIIL dataset (primary source)
         if use_phiusiil:

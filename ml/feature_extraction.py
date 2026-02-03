@@ -62,7 +62,9 @@ class FeatureExtractor:
             'ibm.com', 'salesforce.com', 'zoom.us', 'dropbox.com'
         ]
         
-        # Feature names in the order they should be used for ML model
+        
+        
+        # Feature names - Base features
         self.feature_names = [
             'url_length', 'domain_length', 'path_length', 'num_dots',
             'num_hyphens', 'num_slashes', 'num_question_marks', 'num_equals',
@@ -70,7 +72,26 @@ class FeatureExtractor:
             'suspicious_keyword_count', 'is_trusted_domain', 'has_homograph',
             'subdomain_count', 'path_depth'
         ]
-    
+        
+        # New advanced features
+        self.feature_names.extend([
+            'entropy', 'digit_ratio', 'longest_token_len', 'tld_in_path',
+            'is_shortened', 'is_suspicious_tld', 'has_client_server',
+            'domain_token_count', 'path_token_count', 'is_punycode'
+        ])
+        
+        # Common URL shorteners
+        self.shorteners = [
+            'bit.ly', 'goo.gl', 'tinyurl.com', 'ow.ly', 't.co', 'is.gd',
+            'buff.ly', 'adf.ly', 'bit.do', 'tr.im'
+        ]
+        
+        # Suspicious TLDs often used in phishing
+        self.suspicious_tlds = [
+            '.xyz', '.top', '.loan', '.click', '.country', '.stream',
+            '.gdn', '.mom', '.win', '.review', '.vip', '.party'
+        ]
+
     def extract_features(self, url: str) -> Dict[str, float]:
         """
         Extract all features from a URL.
@@ -80,12 +101,6 @@ class FeatureExtractor:
             
         Returns:
             Dict[str, float]: Dictionary mapping feature names to their values
-            
-        Example:
-            >>> extractor = FeatureExtractor()
-            >>> features = extractor.extract_features('https://secure-login.example.com/verify')
-            >>> print(features['suspicious_keyword_count'])
-            2
         """
         # Parse URL into components
         try:
@@ -123,6 +138,18 @@ class FeatureExtractor:
             'suspicious_keyword_count': float(self._count_suspicious_keywords(full_url)),
             'subdomain_count': float(self._count_subdomains(domain)),
             'path_depth': float(self._calculate_path_depth(path)),
+            
+            # --- NEW FEATURES ---
+            'entropy': self._calculate_entropy(domain),
+            'digit_ratio': self._calculate_digit_ratio(url),
+            'longest_token_len': float(self._longest_token_length(url)),
+            'tld_in_path': 1.0 if self._tld_in_path(path) else 0.0,
+            'is_shortened': 1.0 if self._is_shortened(domain) else 0.0,
+            'is_suspicious_tld': 1.0 if self._is_suspicious_tld(domain) else 0.0,
+            'has_client_server': 1.0 if 'client' in full_url or 'server' in full_url else 0.0,
+            'domain_token_count': float(len(re.split(r'[.-]', domain))),
+            'path_token_count': float(len(re.split(r'[/-]', path)) if path else 0),
+            'is_punycode': 1.0 if 'xn--' in domain else 0.0,
         }
         
         return features
@@ -151,86 +178,44 @@ class FeatureExtractor:
         return self.feature_names.copy()
     
     def _is_ip_address(self, domain: str) -> bool:
-        """
-        Check if the domain is an IP address instead of a domain name.
-        
-        Phishing sites often use IP addresses to avoid domain registration.
-        
-        Args:
-            domain (str): Domain part of the URL
-            
-        Returns:
-            bool: True if domain is an IP address
-        """
+        """Check if the domain is an IP address."""
         # IPv4 pattern: xxx.xxx.xxx.xxx
         ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
-        
-        # Remove port if present
         domain_without_port = domain.split(':')[0]
         
         if re.match(ipv4_pattern, domain_without_port):
-            # Verify each octet is valid (0-255)
             octets = domain_without_port.split('.')
             return all(0 <= int(octet) <= 255 for octet in octets)
         
-        # Simple IPv6 check (contains multiple colons)
         if domain_without_port.count(':') >= 2:
             return True
-        
         return False
     
     def _is_trusted_domain(self, domain: str) -> bool:
-        """
-        Check if the domain is in the trusted domain whitelist.
+        """Check if the domain is in the trusted domain whitelist or has a trusted TLD."""
+        domain_clean = domain.split(':')[0].lower()
         
-        Args:
-            domain (str): Domain part of the URL
+        # 1. Check Trusted TLDs (Education/Government are rarely used for phishing)
+        trusted_tlds = ['.edu', '.gov', '.mil', '.ac.in', '.edu.in', '.gov.in', '.org', '.int']
+        if any(domain_clean.endswith(tld) for tld in trusted_tlds):
+            return True
             
-        Returns:
-            bool: True if domain is trusted
-        """
-        # Remove port if present
-        domain_clean = domain.split(':')[0]
-        
-        # Check if any trusted domain is contained in the URL domain
+        # 2. Check Whitelisted Domains
         for trusted in self.trusted_domains:
             if trusted in domain_clean:
-                # Ensure it's actually the domain, not just contained in subdomain
-                # e.g., "google.com" should match "www.google.com" but not "fake-google.com.evil.com"
                 if domain_clean.endswith(trusted) or domain_clean == trusted:
                     return True
-        
         return False
     
     def _has_homograph_chars(self, domain: str) -> bool:
-        """
-        Detect potential homograph attacks using non-ASCII characters.
-        
-        Homograph attacks use visually similar characters from different alphabets
-        (e.g., Cyrillic 'а' looks like Latin 'a') to create fake domains.
-        
-        Args:
-            domain (str): Domain part of the URL
-            
-        Returns:
-            bool: True if non-ASCII characters detected
-        """
+        """Detect potential homograph attacks using non-ASCII characters."""
         for char in domain:
-            # Check if character is outside standard ASCII range
             if ord(char) > 127:
                 return True
         return False
     
     def _count_suspicious_keywords(self, url: str) -> int:
-        """
-        Count how many suspicious keywords appear in the URL.
-        
-        Args:
-            url (str): Full URL (lowercased)
-            
-        Returns:
-            int: Number of suspicious keywords found
-        """
+        """Count how many suspicious keywords appear in the URL."""
         count = 0
         for keyword in self.suspicious_keywords:
             if keyword in url:
@@ -238,51 +223,55 @@ class FeatureExtractor:
         return count
     
     def _count_subdomains(self, domain: str) -> int:
-        """
-        Count the number of subdomains in the domain.
-        
-        Example: 'www.secure.login.example.com' has 3 subdomains (www, secure, login)
-        
-        Args:
-            domain (str): Domain part of the URL
-            
-        Returns:
-            int: Number of subdomains (can be negative if no valid domain)
-        """
+        """Count the number of subdomains in the domain."""
         if not domain or self._is_ip_address(domain):
             return 0
-        
-        # Remove port if present
         domain_clean = domain.split(':')[0]
-        
-        # Split by dots
         parts = [p for p in domain_clean.split('.') if p]
-        
-        # Typical domain has 2 parts: domain + TLD (e.g., example.com)
-        # Everything beyond that is a subdomain
-        # Subtract 2 for domain and TLD
-        subdomain_count = len(parts) - 2
-        
-        return max(subdomain_count, 0)
+        return max(len(parts) - 2, 0)
     
     def _calculate_path_depth(self, path: str) -> int:
-        """
-        Calculate the depth of the URL path.
-        
-        Example: '/login/user/verify' has depth 3
-        
-        Args:
-            path (str): Path part of the URL
-            
-        Returns:
-            int: Depth of the path
-        """
+        """Calculate the depth of the URL path."""
         if not path or path == '/':
             return 0
-        
-        # Split by slash and count non-empty parts
         parts = [p for p in path.split('/') if p]
         return len(parts)
+
+    def _calculate_entropy(self, text: str) -> float:
+        """Calculate Shannon entropy of the string."""
+        if not text:
+            return 0.0
+        text = text.lower()
+        probs = [text.count(c) / len(text) for c in set(text)]
+        return -sum(p * np.log2(p) for p in probs)
+
+    def _calculate_digit_ratio(self, text: str) -> float:
+        """Calculate the ratio of digits to total characters."""
+        if not text:
+            return 0.0
+        digits = sum(c.isdigit() for c in text)
+        return digits / len(text)
+
+    def _longest_token_length(self, text: str) -> int:
+        """Find the length of the longest alphanumeric token."""
+        tokens = re.split(r'[^a-zA-Z0-9]', text)
+        if not tokens:
+            return 0
+        return len(max(tokens, key=len))
+
+    def _tld_in_path(self, path: str) -> bool:
+        """Check if a common TLD appears in the path (e.g., /com/)."""
+        common_tlds = ['.com', '.net', '.org', '.edu', '.gov']
+        return any(tld in path for tld in common_tlds)
+
+    def _is_shortened(self, domain: str) -> bool:
+        """Check if the domain is a known URL shortener."""
+        domain_clean = domain.split(':')[0]
+        return any(short in domain_clean for short in self.shorteners)
+
+    def _is_suspicious_tld(self, domain: str) -> bool:
+        """Check if the TLD is considered suspicious."""
+        return any(domain.endswith(tld) for tld in self.suspicious_tlds)
 
 
 # Convenience function for standalone use
@@ -311,13 +300,16 @@ if __name__ == '__main__':
         'https://www.google.com',
         'http://192.168.1.1/verify-account',
         'https://secure-login-verify.suspicious-bank.com/update/password?user=123',
-        'https://www.github.com/user/repository'
+        'https://www.github.com/user/repository',
+        'http://bit.ly/suspicious',
+        'http://cheap-loan.xyz/login'
     ]
     
     for url in test_urls:
         print(f"\nURL: {url}")
         features = extractor.extract_features(url)
-        print(f"  Features: {features}")
-        print(f"  Suspicious keywords: {features['suspicious_keyword_count']}")
-        print(f"  Is trusted: {features['is_trusted_domain']}")
-        print(f"  Has IP: {features['has_ip']}")
+        print(f"  Entropy: {features['entropy']:.4f}")
+        print(f"  Digit Ratio: {features['digit_ratio']:.4f}")
+        print(f"  Shortened: {features['is_shortened']}")
+        print(f"  Suspicious TLD: {features['is_suspicious_tld']}")
+

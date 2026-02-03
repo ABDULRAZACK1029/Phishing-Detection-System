@@ -1,0 +1,16 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Models (too large for GitHub)
+*.pkl
+ml/models/*.pkl
+ml/datasets/*.csv
+!ml/datasets/test.csv

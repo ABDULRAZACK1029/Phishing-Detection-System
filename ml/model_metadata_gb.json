@@ -1,0 +1,56 @@
+{
+  "model_type": "gradient_boosting",
+  "accuracy": 1.0,
+  "train_accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "roc_auc": 1.0,
+  "cross_validation_scores": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "cv_mean": 1.0,
+  "cv_std": 0.0,
+  "n_folds": 5,
+  "training_samples": 16000,
+  "test_samples": 4000,
+  "total_samples": 20000,
+  "feature_count": 17,
+  "feature_names": [
+    "url_length",
+    "domain_length",
+    "path_length",
+    "num_dots",
+    "num_hyphens",
+    "num_slashes",
+    "num_question_marks",
+    "num_equals",
+    "num_ampersands",
+    "num_percent",
+    "has_ip",
+    "has_port",
+    "suspicious_keyword_count",
+    "is_trusted_domain",
+    "has_homograph",
+    "subdomain_count",
+    "path_depth"
+  ],
+  "training_date": "2026-02-01T16:21:24.305405",
+  "confusion_matrix": [
+    [
+      2000,
+      0
+    ],
+    [
+      0,
+      2000
+    ]
+  ],
+  "test_size": 0.2,
+  "use_scaling": false,
+  "dataset_source": "enhanced_training"
+}

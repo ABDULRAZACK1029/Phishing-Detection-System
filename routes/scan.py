@@ -15,7 +15,7 @@ import json
 try:
     from ml.predict import predict_url
     ML_AVAILABLE = True
-    print("✓ ML predictor module loaded successfully")
+    print("[OK] ML predictor module loaded successfully")
 except ImportError as e:
     ML_AVAILABLE = False
     print(f"⚠️  ML predictor not available: {e}")

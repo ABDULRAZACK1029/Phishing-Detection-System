@@ -245,6 +245,34 @@ class PhishingPredictor:
                 'detection_method': 'rule_based_override'
             }
         
+        # Pattern 5: ASCII Homoglyph Attack (NEW)
+        # Detects lookalike character substitutions (0->o, 1->l, rn->m)
+        if features.get('has_ascii_homoglyph', 0) == 1.0:
+            return {
+                'prediction': 'Phishing',
+                'confidence': 0.93,
+                'is_safe': False,
+                'threat_level': 'critical',
+                'ml_score': 0.93,
+                'features': features,
+                'model_available': True,
+                'detection_method': 'homoglyph_attack'
+            }
+        
+        # Pattern 6: URL Shortener (Medium-High Risk)
+        # Shorteners hide the actual destination, making them inherently risky
+        if features.get('is_shortened', 0) == 1.0:
+            return {
+                'prediction': 'Phishing',
+                'confidence': 0.75,
+                'is_safe': False,
+                'threat_level': 'high',
+                'ml_score': 0.75,
+                'features': features,
+                'model_available': True,
+                'detection_method': 'url_shortener'
+            }
+        
         # No obvious phishing pattern detected, proceed with ML
         return None
     
@@ -378,6 +406,98 @@ def predict_url(url: str) -> Dict:
     """
     predictor = get_predictor()
     return predictor.predict_url(url)
+
+
+# ============================================================================
+# PHISHTANK API INTEGRATION (Hybrid Detection)
+# ============================================================================
+
+# Import PhishTank API
+try:
+    from ml.phishtank_api import get_phishtank_api
+    PHISHTANK_AVAILABLE = True
+except ImportError:
+    PHISHTANK_AVAILABLE = False
+    print("[WARNING] PhishTank API module not available. Install 'requests' package.")
+
+
+def predict_url_hybrid(url: str, use_phishtank: bool = True) -> Dict:
+    """
+    Hybrid prediction using PhishTank API + ML model (layered detection).
+    
+    Detection Layers:
+        1. PhishTank API - Check verified phishing database (100% confidence)
+        2. Rule-Based - Homoglyphs, shorteners (75-93% confidence)
+        3. ML Model - Pattern-based detection
+    
+    Args:
+        url (str): The URL to analyze
+        use_phishtank (bool): Whether to check PhishTank first (default: True)
+    
+    Returns:
+        Dict containing:
+            - prediction (str): 'Phishing' or 'Legitimate'
+            - confidence (float): Confidence score 0.0 to 1.0
+            - is_safe (bool): True if legitimate, False if phishing
+            - threat_level (str): 'safe', 'low', 'medium', 'high', 'critical'
+            - detection_method (str): How the URL was detected
+            - source (str): 'PhishTank', 'ML Model', or 'ML Model (PhishTank unavailable)'
+            - phish_id (int, optional): PhishTank ID if from database
+            - verified (bool, optional): Whether manually verified by PhishTank
+    
+    Example:
+        >>> result = predict_url_hybrid('http://example.com')
+        >>> print(f"Source: {result['source']}")
+        >>> print(f"Method: {result['detection_method']}")
+    """
+    # Layer 1: Check PhishTank API (if available and enabled)
+    if use_phishtank and PHISHTANK_AVAILABLE:
+        try:
+            phishtank = get_phishtank_api()
+            pt_result = phishtank.check_url(url)
+            
+            if pt_result['is_phishing'] is True:
+                # Verified phishing in PhishTank database
+                return {
+                    'prediction': 'Phishing',
+                    'confidence': 1.0,
+                    'is_safe': False,
+                    'threat_level': 'critical',
+                    'ml_score': 1.0,
+                    'detection_method': 'phishtank_database',
+                    'source': 'PhishTank',
+                    'phish_id': pt_result.get('phish_id'),
+                    'verified': pt_result.get('verified'),
+                    'verified_at': pt_result.get('verified_at'),
+                    'model_available': True
+                }
+            
+            elif pt_result['is_phishing'] is False and pt_result.get('in_database'):
+                # In PhishTank database but marked as legitimate
+                # Still run ML for additional validation, but note PhishTank says safe
+                ml_result = predict_url(url)
+                ml_result['phishtank_safe'] = True
+                ml_result['source'] = 'ML Model + PhishTank'
+                return ml_result
+            
+            # Not in PhishTank database or error occurred - proceed to ML
+        
+        except Exception as e:
+            # PhishTank error - log and fallback to ML
+            print(f"[WARNING] PhishTank API error: {e}")
+    
+    # Layer 2 & 3: Use existing ML + rule-based detection
+    ml_result = predict_url(url)
+    
+    # Add source information
+    if use_phishtank and PHISHTANK_AVAILABLE:
+        ml_result['source'] = 'ML Model'
+    elif use_phishtank and not PHISHTANK_AVAILABLE:
+        ml_result['source'] = 'ML Model (PhishTank unavailable)'
+    else:
+        ml_result['source'] = 'ML Model'
+    
+    return ml_result
 
 
 if __name__ == '__main__':

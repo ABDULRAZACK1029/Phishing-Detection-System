@@ -188,12 +188,20 @@
                     datasets: [{
                         data: Object.values(breakdown),
                         backgroundColor: [
-                            'rgba(34, 197, 94, 0.8)',   // safe - green
+                            'rgba(34, 197, 94, 0.9)',    // safe - bright green
                             'rgba(59, 130, 246, 0.8)',   // low - blue
                             'rgba(234, 179, 8, 0.8)',    // medium - yellow
                             'rgba(249, 115, 22, 0.8)',   // high - orange
-                            'rgba(239, 68, 68, 0.8)'     // critical - red
-                        ]
+                            'rgba(239, 68, 68, 0.9)'     // critical - bright red
+                        ],
+                        borderColor: [
+                            'rgb(34, 197, 94)',          // safe - green border
+                            'rgb(59, 130, 246)',         // low - blue border
+                            'rgb(234, 179, 8)',          // medium - yellow border
+                            'rgb(249, 115, 22)',         // high - orange border
+                            'rgb(239, 68, 68)'           // critical - red border
+                        ],
+                        borderWidth: 2
                     }]
                 },
                 options: {

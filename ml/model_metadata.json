@@ -1,22 +1,10 @@
 {
   "model_type": "random_forest",
-  "accuracy": 0.9436153958852216,
-  "train_accuracy": 0.9657719174319127,
-  "precision": 0.9462680282134962,
-  "recall": 0.9406433788903075,
-  "f1_score": 0.9434473203602242,
-  "roc_auc": 0.9854926806706124,
-  "cross_validation_scores": [
-    0.9399576171415116,
-    0.9404128404363865
-  ],
-  "cv_mean": 0.9401852287889491,
-  "cv_std": 0.00022761164743745343,
-  "n_folds": 2,
-  "training_samples": 382230,
-  "test_samples": 95558,
-  "total_samples": 477788,
-  "feature_count": 27,
+  "accuracy": 1.0,
+  "training_samples": 8000,
+  "test_samples": 2000,
+  "total_samples": 10000,
+  "feature_count": 28,
   "feature_names": [
     "url_length",
     "domain_length",
@@ -44,20 +32,9 @@
     "has_client_server",
     "domain_token_count",
     "path_token_count",
-    "is_punycode"
+    "is_punycode",
+    "has_ascii_homoglyph"
   ],
-  "training_date": "2026-02-03T03:20:26.073297",
-  "confusion_matrix": [
-    [
-      45227,
-      2552
-    ],
-    [
-      2836,
-      44943
-    ]
-  ],
-  "test_size": 0.2,
-  "use_scaling": false,
-  "dataset_source": "enhanced_training"
+  "training_date": "2026-02-05T20:45:43.898223",
+  "includes_homoglyph_detection": true
 }

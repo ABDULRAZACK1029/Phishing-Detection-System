@@ -77,19 +77,59 @@ class FeatureExtractor:
         self.feature_names.extend([
             'entropy', 'digit_ratio', 'longest_token_len', 'tld_in_path',
             'is_shortened', 'is_suspicious_tld', 'has_client_server',
-            'domain_token_count', 'path_token_count', 'is_punycode'
+            'domain_token_count', 'path_token_count', 'is_punycode',
+            'has_ascii_homoglyph'  # NEW: ASCII homoglyph detection
         ])
         
-        # Common URL shorteners
+        # Common URL shorteners (expanded database)
         self.shorteners = [
+            # Original popular shorteners
             'bit.ly', 'goo.gl', 'tinyurl.com', 'ow.ly', 't.co', 'is.gd',
-            'buff.ly', 'adf.ly', 'bit.do', 'tr.im'
+            'buff.ly', 'adf.ly', 'bit.do', 'tr.im',
+            # Additional shorteners
+            'short.io', 'rebrand.ly', 'cutt.ly', 'tiny.cc', 's.id',
+            'clck.ru', 'shorturl.at', 'tinycc.com', 'v.gd', 'x.co',
+            'ead.me', 'lnkd.in', 'soo.gd', 'ity.im', 'q.gs',
+            'po.st', 'bc.vc', 'u.to', 'j.mp', 'tweez.me',
+            'shorte.st', 'mcaf.ee', 'su.pr', 'filoops.info', 'linktr.ee'
         ]
+        
+        # Shortener TLDs (commonly used for URL shortening)
+        self.shortener_tlds = ['.ly', '.co', '.me', '.io', '.gl', '.gd']
         
         # Suspicious TLDs often used in phishing
         self.suspicious_tlds = [
             '.xyz', '.top', '.loan', '.click', '.country', '.stream',
             '.gdn', '.mom', '.win', '.review', '.vip', '.party'
+        ]
+        
+        # Brand names commonly targeted in phishing attacks
+        self.brand_names = [
+            'amazon', 'paypal', 'facebook', 'google', 'microsoft', 'apple',
+            'instagram', 'twitter', 'linkedin', 'netflix', 'ebay', 'yahoo',
+            'chase', 'wellsfargo', 'bankofamerica', 'citibank', 'usbank',
+            'americanexpress', 'discover', 'capitalone', 'hsbc', 'barclays',
+            'whatsapp', 'telegram', 'snapchat', 'tiktok', 'reddit',
+            'dropbox', 'adobe', 'salesforce', 'oracle', 'ibm', 'zoom'
+        ]
+        
+        # Homoglyph character mappings (ASCII lookalikes)
+        # Maps suspicious characters to their legitimate equivalents
+        self.homoglyph_map = {
+            '0': 'o',  # zero to letter o
+            '1': 'l',  # one to letter l
+            '3': 'e',  # three to letter e
+            '5': 's',  # five to letter s
+            '8': 'b',  # eight to letter b
+            '9': 'g',  # nine to letter g
+        }
+        
+        # Multi-character homoglyphs (character sequences that look like single chars)
+        self.multi_char_homoglyphs = [
+            ('rn', 'm'),   # rn looks like m
+            ('vv', 'w'),   # vv looks like w
+            ('cl', 'd'),   # cl looks like d
+            ('nn', 'u'),   # nn can look like u
         ]
 
     def extract_features(self, url: str) -> Dict[str, float]:
@@ -150,6 +190,7 @@ class FeatureExtractor:
             'domain_token_count': float(len(re.split(r'[.-]', domain))),
             'path_token_count': float(len(re.split(r'[/-]', path)) if path else 0),
             'is_punycode': 1.0 if 'xn--' in domain else 0.0,
+            'has_ascii_homoglyph': 1.0 if self._detect_ascii_homoglyph(domain) else 0.0,
         }
         
         return features
@@ -265,13 +306,183 @@ class FeatureExtractor:
         return any(tld in path for tld in common_tlds)
 
     def _is_shortened(self, domain: str) -> bool:
-        """Check if the domain is a known URL shortener."""
-        domain_clean = domain.split(':')[0]
-        return any(short in domain_clean for short in self.shorteners)
+        """Check if the domain is a known URL shortener using database and patterns."""
+        domain_clean = domain.split(':')[0].lower()
+        
+        # Check against known shortener database
+        if any(short in domain_clean for short in self.shorteners):
+            return True
+        
+        # Pattern-based detection (for unknown shorteners)
+        return self._is_shortener_pattern(domain_clean)
+    
+    def _is_shortener_pattern(self, domain: str) -> bool:
+        """
+        Detect URL shortener patterns using heuristics.
+        
+        Patterns detected:
+        1. Single-letter subdomain (l.ead.me, t.co, s.id)
+        2. Very short domain (≤8 chars) with shortener TLD
+        3. Short domain with common shortener patterns
+        
+        Args:
+            domain (str): Domain to check
+            
+        Returns:
+            bool: True if domain matches shortener patterns
+        """
+        if not domain:
+            return False
+        
+        # Remove port if present
+        domain = domain.split(':')[0]
+        
+        # Pattern 1: Single-letter subdomain
+        # Examples: l.ead.me, t.co, s.id, x.co
+        parts = domain.split('.')
+        if len(parts) >= 2:
+            subdomain = parts[0]
+            if len(subdomain) == 1 and subdomain.isalpha():
+                # Single letter subdomain is very common for shorteners
+                return True
+        
+        # Pattern 2: Very short domain with shortener TLD
+        # Examples: bit.ly, goo.gl, t.co
+        if len(domain) <= 8:
+            for tld in self.shortener_tlds:
+                if domain.endswith(tld):
+                    return True
+        
+        # Pattern 3: Two-letter domain with common TLDs
+        # Examples: t.co, x.co, v.gd
+        if len(parts) == 2:
+            main_domain = parts[0]
+            if len(main_domain) <= 2 and main_domain.isalpha():
+                return True
+        
+        return False
 
     def _is_suspicious_tld(self, domain: str) -> bool:
         """Check if the TLD is considered suspicious."""
         return any(domain.endswith(tld) for tld in self.suspicious_tlds)
+    
+    def _normalize_homoglyphs(self, text: str) -> str:
+        """
+        Normalize a string by replacing homoglyph characters with their legitimate equivalents.
+        
+        This helps detect domains like 'amaz0n.com' (with zero) vs 'amazon.com' (with letter o).
+        
+        Args:
+            text (str): Text to normalize
+            
+        Returns:
+            str: Normalized text with homoglyphs replaced
+        """
+        normalized = text.lower()
+        
+        # Replace single-character homoglyphs
+        for suspicious, legitimate in self.homoglyph_map.items():
+            normalized = normalized.replace(suspicious, legitimate)
+        
+        # Replace multi-character homoglyphs
+        for suspicious_seq, legitimate_char in self.multi_char_homoglyphs:
+            normalized = normalized.replace(suspicious_seq, legitimate_char)
+        
+        return normalized
+    
+    def _detect_ascii_homoglyph(self, domain: str) -> bool:
+        """
+        Detect ASCII-based homoglyph attacks in domain names.
+        
+        This catches phishing attempts like:
+        - amazorn.com (rn -> m)
+        - faceb00k.com (0 -> o)
+        - paypa1.com (1 -> l)
+        - g00gle.com (0 -> o)
+        
+        Args:
+            domain (str): Domain name to check
+            
+        Returns:
+            bool: True if homoglyph attack detected, False otherwise
+        """
+        if not domain:
+            return False
+        
+        # Remove port and clean domain
+        domain_clean = domain.split(':')[0].lower()
+        
+        # Remove common TLD to focus on brand name
+        # e.g., 'faceb00k.com' -> 'faceb00k'
+        for tld in ['.com', '.net', '.org', '.co', '.io', '.edu', '.gov']:
+            if domain_clean.endswith(tld):
+                domain_clean = domain_clean[:-len(tld)]
+                break
+        
+        # Also remove subdomains - focus on main domain
+        # e.g., 'login.faceb00k' -> 'faceb00k'
+        parts = domain_clean.split('.')
+        if len(parts) > 1:
+            domain_clean = parts[-1]  # Get the last part (main domain)
+        
+        # Normalize the domain by replacing homoglyphs
+        normalized = self._normalize_homoglyphs(domain_clean)
+        
+        # Check if normalized domain matches any known brand
+        for brand in self.brand_names:
+            # Exact match after normalization
+            if normalized == brand:
+                # The normalized domain matches a brand, but does the original?
+                # If original doesn't match, it's a homoglyph attack
+                if domain_clean != brand:
+                    return True
+            
+            # Check if brand is contained in normalized domain
+            # e.g., 'faceb00k-login' -> 'facebook-login' (normalized)
+            if brand in normalized and brand not in domain_clean:
+                # Brand appears after normalization but not in original
+                return True
+            
+            # NEW: Check if domain contains brand after normalization
+            # This catches cases like 'amazorn' -> 'amazom' which contains 'amazon' partially
+            # We check if the normalized domain is very similar to the brand
+            if len(brand) >= 4:  # Only for brands with 4+ characters
+                # Check if normalized domain starts with most of the brand
+                # e.g., 'amazom' starts with 'amaz' from 'amazon'
+                brand_prefix = brand[:len(brand)-1]  # All but last char
+                if normalized.startswith(brand_prefix) and domain_clean != brand:
+                    # Also check if original doesn't start with same prefix
+                    if not domain_clean.startswith(brand_prefix):
+                        return True
+                
+                # Check for close matches using character-by-character comparison
+                # This catches 'amazorn' which becomes 'amazom' (1 char different from 'amazon')
+                if self._is_close_match(normalized, brand) and domain_clean != brand:
+                    return True
+        
+        return False
+    
+    def _is_close_match(self, text1: str, text2: str, max_diff: int = 1) -> bool:
+        """
+        Check if two strings are close matches (differ by at most max_diff characters).
+        
+        Args:
+            text1: First string
+            text2: Second string
+            max_diff: Maximum number of differing characters
+            
+        Returns:
+            bool: True if strings are close matches
+        """
+        if abs(len(text1) - len(text2)) > max_diff:
+            return False
+        
+        # Count differing characters
+        min_len = min(len(text1), len(text2))
+        diff_count = sum(1 for i in range(min_len) if text1[i] != text2[i])
+        diff_count += abs(len(text1) - len(text2))  # Add length difference
+        
+        return diff_count <= max_diff
 
 
 # Convenience function for standalone use

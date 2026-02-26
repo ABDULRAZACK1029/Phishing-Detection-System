@@ -7,9 +7,9 @@ bcrypt==4.1.1
 # ML dependencies for phishing detection (Required)
 # Note: scikit-learn requires Microsoft Visual C++ Build Tools on Windows
 # Install with: pip install -r requirements.txt
-scikit-learn==1.3.2
-numpy==1.24.3
-pandas==2.0.3
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.1.0
 joblib==1.3.2
 urllib3==2.1.0
 requests==2.31.0

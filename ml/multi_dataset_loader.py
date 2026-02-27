@@ -215,6 +215,63 @@ class MultiDatasetLoader:
             print(f"[!] Error downloading PhishTank data: {e}")
             print("Skipping PhishTank dataset - continuing with other sources")
             return pd.DataFrame(columns=['url', 'label'])
+
+    def download_openphish_dataset(self, limit: int = 10000) -> pd.DataFrame:
+        """
+        Download live phishing URLs from OpenPhish free feed.
+
+        OpenPhish provides a continuously updated free feed of phishing URLs
+        at https://openphish.com/feed.txt — one URL per line, all confirmed phishing.
+
+        Args:
+            limit (int): Max number of URLs to use (default 10,000)
+
+        Returns:
+            pd.DataFrame: Dataset with 'url' and 'label' columns (all label=1)
+        """
+        cache_file = self.cache_dir / 'openphish_dataset.csv'
+
+        if cache_file.exists():
+            print(f"[OK] Loading cached OpenPhish dataset from {cache_file}")
+            return pd.read_csv(cache_file)
+
+        print("[*] Downloading OpenPhish live phishing feed...")
+
+        try:
+            response = requests.get(
+                'https://openphish.com/feed.txt',
+                timeout=15,
+                headers={'User-Agent': 'PhishGuard/1.0 Academic Research'}
+            )
+            response.raise_for_status()
+
+            # Each line is one phishing URL
+            urls = [line.strip() for line in response.text.splitlines()
+                    if line.strip() and line.startswith('http')]
+
+            if not urls:
+                print("[!] OpenPhish feed returned no URLs")
+                return pd.DataFrame(columns=['url', 'label'])
+
+            # Limit if needed
+            if len(urls) > limit:
+                import random
+                random.seed(42)
+                urls = random.sample(urls, limit)
+
+            df = pd.DataFrame({'url': urls, 'label': 1})  # All phishing
+
+            # Cache for future runs
+            df.to_csv(cache_file, index=False)
+            print(f"[OK] Downloaded {len(df)} phishing URLs from OpenPhish")
+            return df
+
+        except requests.Timeout:
+            print("[!] OpenPhish request timed out — skipping")
+            return pd.DataFrame(columns=['url', 'label'])
+        except Exception as e:
+            print(f"[!] Error downloading OpenPhish data: {e}")
+            return pd.DataFrame(columns=['url', 'label'])
     
     def create_legitimate_urls(self, count: int = 10000) -> pd.DataFrame:
         """
@@ -365,10 +422,11 @@ class MultiDatasetLoader:
         
         return np.array(X), np.array(y)
     
-    def load_and_combine_datasets(self, 
+    def load_and_combine_datasets(self,
                                   use_phiusiil: bool = True,
                                   use_phishtank: bool = True,
                                   use_mendeley: bool = True,
+                                  use_openphish: bool = True,
                                   balance_classes: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load and combine all datasets with feature extraction.
@@ -408,6 +466,20 @@ class MultiDatasetLoader:
             except Exception as e:
                 print(f"  ✗ PhiUSIIL failed: {e}")
         
+        # Load OpenPhish dataset (live phishing feed)
+        if use_openphish:
+            try:
+                df_openphish = self.download_openphish_dataset(limit=10000)
+                if len(df_openphish) > 0:
+                    all_dfs.append(df_openphish)
+                    print(f"  [OK] OpenPhish: {len(df_openphish)} URLs (phishing)")
+                    # Balance with legitimate URLs
+                    df_legit_op = self.create_legitimate_urls(count=len(df_openphish))
+                    all_dfs.append(df_legit_op)
+                    print(f"  [OK] Legitimate (for OpenPhish balance): {len(df_legit_op)} URLs")
+            except Exception as e:
+                print(f"  ✗ OpenPhish failed: {e}")
+
         # Load PhishTank dataset
         if use_phishtank:
             try:

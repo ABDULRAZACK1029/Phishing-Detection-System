@@ -113,6 +113,15 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('errorMessage');
+            const submitBtn = e.submitter;
+
+            // ✅ FIX 1: Always hide error and reset on every new attempt
+            errorDiv.classList.add('hidden');
+            errorDiv.textContent = '';
+
+            // ✅ FIX 2: Disable button to prevent double-submit
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in...';
 
             try {
                 const response = await fetch(`${API_BASE}/auth/login`, {
@@ -139,10 +148,15 @@
                 } else {
                     errorDiv.textContent = data.error || 'Login failed';
                     errorDiv.classList.remove('hidden');
+                    // ✅ FIX 3: Re-enable button on failure so user can try again
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sign In';
                 }
             } catch (error) {
                 errorDiv.textContent = 'Connection error. Please check if the server is running.';
                 errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign In';
             }
         }
 

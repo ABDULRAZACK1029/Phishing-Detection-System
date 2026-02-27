@@ -37,8 +37,8 @@ class PhishingPredictor:
     _instance = None
     _lock = threading.Lock()
     
-    def __init__(self, model_path: str = 'ml/phishing_model.pkl', 
-                 metadata_path: str = 'ml/model_metadata.json'):
+    def __init__(self, model_path: str = 'ml/phishing_model_gb_optimized.pkl',
+                 metadata_path: str = 'ml/model_metadata_gb_optimized.json'):
         """
         Initialize the predictor.
         
@@ -50,6 +50,7 @@ class PhishingPredictor:
         self.metadata_path = metadata_path
         self.model = None
         self.metadata = None
+        self.model_feature_names = None  # loaded from metadata
         self.feature_extractor = FeatureExtractor()
         self._model_loaded = False
     
@@ -83,7 +84,9 @@ class PhishingPredictor:
                 if os.path.exists(self.metadata_path):
                     with open(self.metadata_path, 'r') as f:
                         self.metadata = json.load(f)
-                    print(f"[OK] Model metadata loaded (Accuracy: {self.metadata.get('accuracy', 0):.2%})")
+                    # Use feature list from metadata to avoid dimension mismatch
+                    self.model_feature_names = self.metadata.get('feature_names', None)
+                    print(f"[OK] Model metadata loaded (Accuracy: {self.metadata.get('accuracy', 0):.2%}, Features: {len(self.model_feature_names) if self.model_feature_names else 'unknown'})")
                 
                 self._model_loaded = True
                 return True
@@ -125,8 +128,13 @@ class PhishingPredictor:
                 return self._fallback_prediction(url, features)
         
         try:
-            # Get feature vector in correct order
-            feature_vector = self.feature_extractor.get_feature_vector(url).reshape(1, -1)
+            # Get feature vector — use only the features the model was trained on
+            all_features = self.feature_extractor.extract_features(url)
+            if self.model_feature_names:
+                # Use only the features listed in model metadata (handles version differences)
+                feature_vector = np.array([all_features.get(name, 0.0) for name in self.model_feature_names]).reshape(1, -1)
+            else:
+                feature_vector = self.feature_extractor.get_feature_vector(url).reshape(1, -1)
             
             # Make prediction
             prediction_label = self.model.predict(feature_vector)[0]
